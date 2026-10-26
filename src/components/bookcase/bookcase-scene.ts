@@ -37,6 +37,9 @@ export interface BookcaseBook {
   shelf: ShelfId;
   /** Same-origin cover image URL (WebGL cannot use cross-origin images), or null. */
   coverSrc: string | null;
+  /** The user’s 1-5 star rating; rated books get a gilded star on the spine. */
+  rating: number | null;
+  review: string | null;
 }
 
 export interface BookcaseCallbacks {
@@ -99,6 +102,9 @@ interface BookState {
    * out from under the pointer and flicker between hovered and not.
    */
   hitArea: THREE.Mesh;
+  /** Spine material, redrawn when the book is rated or un-rated. */
+  spine: THREE.MeshStandardMaterial;
+  cloth: string;
   height: number;
   /** Where the book rests: on a shelf or in the bin. */
   home: THREE.Vector3;
@@ -338,7 +344,11 @@ export function createBookcase(
       coverMaterial.color.set("#ffffff");
     }
     // Cloth spine with gold foil: the metalness and roughness maps make only the foil shine.
-    const spine = spineMaps(book.title, cloth, options.fontFamily);
+    const spine = new THREE.MeshStandardMaterial({
+      ...spineMaps(book.title, cloth, options.fontFamily, book.rating !== null),
+      metalness: 1,
+      roughness: 1,
+    });
 
     // BoxGeometry face order: +x, -x, +y, -y, +z, -z.
     // The spine faces the viewer (+z); the front cover is on +x.
@@ -347,7 +357,7 @@ export function createBookcase(
       new THREE.MeshStandardMaterial({ color: cloth, roughness: 0.8 }),
       pageMaterial,
       pageMaterial,
-      new THREE.MeshStandardMaterial({ ...spine, metalness: 1, roughness: 1 }),
+      spine,
       pageMaterial,
     ];
     // Slightly rounded edges, like a real cloth-bound book.
@@ -364,6 +374,8 @@ export function createBookcase(
       book,
       mesh,
       hitArea,
+      spine,
+      cloth,
       height,
       home: new THREE.Vector3(),
       homeRotation: new THREE.Euler(),
@@ -438,6 +450,15 @@ export function createBookcase(
       state = createState(book);
       state.dropDelay = firstLayout ? initialDelay : elapsed;
       states.set(book.id, state);
+    }
+    // Rated or un-rated since the last layout: redraw the spine (with or without the star).
+    if ((state.book.rating === null) !== (book.rating === null)) {
+      const maps = spineMaps(book.title, state.cloth, options.fontFamily, book.rating !== null);
+      for (const key of ["map", "metalnessMap", "roughnessMap"] as const) {
+        state.spine[key]?.dispose();
+        state.spine[key] = maps[key];
+      }
+      state.spine.needsUpdate = true;
     }
     state.book = book;
     seen.add(book.id);

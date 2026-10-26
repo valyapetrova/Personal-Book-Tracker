@@ -82,6 +82,8 @@ async function Reader({ params, searchParams }: Pick<PageProps<"/read/[id]">, "p
             bookTitle={book.title}
             shelf={saved?.shelf ?? null}
             isFavorite={saved?.isFavorite ?? false}
+            rating={saved?.rating ?? null}
+            review={saved?.review ?? null}
             allowRemove={false}
           />
         </div>
@@ -96,6 +98,9 @@ async function Reader({ params, searchParams }: Pick<PageProps<"/read/[id]">, "p
           initialPages={pages.slice(startPage - 1, startPage - 1 + INITIAL_PAGES)}
           isShelved={saved !== null}
           isFinished={saved?.shelf === "finished"}
+          bookTitle={book.title}
+          rating={saved?.rating ?? null}
+          review={saved?.review ?? null}
         />
       </article>
     </div>

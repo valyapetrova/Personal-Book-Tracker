@@ -5,7 +5,7 @@ import { refresh } from "next/cache";
 import { getBookDetails } from "@/lib/gutenberg";
 import * as library from "@/lib/library";
 import { isShelfId, type ShelfId } from "@/lib/shelves";
-import { parsePositiveInt, ValidationError } from "@/lib/validation";
+import { parsePositiveInt, REVIEW_MAX_LENGTH, ValidationError } from "@/lib/validation";
 
 /**
  * Server Actions: the only way the UI changes data. Arguments arrive from the
@@ -29,6 +29,29 @@ export async function shelveBookAction(bookId: number, shelf: ShelfId): Promise<
     }
   } catch (error) {
     return failure(error, "Could not update your shelves. Please try again.");
+  }
+  refresh();
+  return { ok: true };
+}
+
+/** Saves a 1-5 star rating and an optional short review (null rating clears both). */
+export async function saveReviewAction(bookId: number, rating: number | null, review: string): Promise<ActionResult> {
+  try {
+    const id = parsePositiveInt(bookId);
+    if (id === null) throw new ValidationError("Invalid book id.");
+    if (rating !== null && !(Number.isInteger(rating) && rating >= 1 && rating <= 5)) {
+      throw new ValidationError("Choose a rating from 1 to 5 stars.");
+    }
+    if (typeof review !== "string") throw new ValidationError("Invalid review.");
+    const note = review.trim();
+    if (note.length > REVIEW_MAX_LENGTH) {
+      throw new ValidationError(`Keep the review under ${REVIEW_MAX_LENGTH} characters.`);
+    }
+    if (!library.saveReview(id, rating, rating === null ? null : note || null)) {
+      throw new ValidationError("Add the book to a shelf before rating it.");
+    }
+  } catch (error) {
+    return failure(error, "Could not save your review. Please try again.");
   }
   refresh();
   return { ok: true };

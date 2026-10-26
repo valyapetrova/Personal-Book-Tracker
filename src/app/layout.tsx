@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Literata } from "next/font/google";
 
+import { ReviewPromptProvider } from "@/components/ReviewPrompt";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
@@ -29,7 +30,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${geistSans.variable} ${literata.variable}`}>
       <body>
         <SiteHeader />
-        <main id="main-content">{children}</main>
+        <main id="main-content">
+          <ReviewPromptProvider>{children}</ReviewPromptProvider>
+        </main>
         <SiteFooter />
       </body>
     </html>

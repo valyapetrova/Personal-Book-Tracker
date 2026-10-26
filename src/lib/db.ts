@@ -118,6 +118,12 @@ const MIGRATIONS: readonly string[] = [
   CREATE INDEX books_shelf_updated_idx ON books (shelf, updated_at DESC);
   CREATE INDEX books_favorites_idx ON books (favorited_at DESC) WHERE is_favorite = 1;
   `,
+  `
+  -- Ratings (1-5 stars) and a short review, usually given when a book is finished.
+  ALTER TABLE books ADD COLUMN rating INTEGER CHECK (rating IS NULL OR rating BETWEEN 1 AND 5);
+  ALTER TABLE books ADD COLUMN review TEXT CHECK (review IS NULL OR length(review) <= 2000);
+  ALTER TABLE books ADD COLUMN reviewed_at TEXT;
+  `,
 ];
 
 declare global {

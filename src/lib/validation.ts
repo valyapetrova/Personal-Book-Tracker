@@ -10,6 +10,9 @@ export const BOOK_LIMITS = {
   summary: 4000,
 } as const;
 
+/** Longest review note that can be saved (the database enforces the same limit). */
+export const REVIEW_MAX_LENGTH = 2000;
+
 export class ValidationError extends Error {
   constructor(message: string) {
     super(message);

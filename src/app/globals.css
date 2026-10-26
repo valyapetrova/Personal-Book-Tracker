@@ -36,6 +36,7 @@
   --shelf-dnf: #7c6f66; /* the grey-brown of the DNF bin */
   --shelf-dnf-text: var(--cream);
   --color-favorite: #e0607e; /* the pink of the favourite heart */
+  --color-star: #c4922c; /* gilded rating stars */
 
   --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-serif: var(--font-literata), Georgia, "Times New Roman", serif;
@@ -87,6 +88,7 @@
     --shelf-dnf: #a8998d;
     --shelf-dnf-text: var(--maroon);
     --color-favorite: #f08aa5;
+    --color-star: #e2b75a;
 
     --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
     --shadow-md: 0 4px 16px rgb(0 0 0 / 0.35);

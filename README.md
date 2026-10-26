@@ -13,6 +13,12 @@ the app. There is no login: it is a personal app with one local database.
   **Want to read ▾** button: one click puts the book on *Want to read*, and the arrow opens a menu
   with *Reading*, *Finished* and *Did not finish*. Once a book is shelved, the button shows its
   shelf in that shelf's colour. The menu works with the keyboard (arrow keys, Enter, Escape).
+- **Ratings and reviews**: when you mark a book *Finished* (from the shelf menu, the end of the
+  reader, or by dragging it onto the Finished shelf in the bookcase), Shelfie asks for 1–5 stars
+  and an optional short note. You can choose *Not now*. Rated books show their stars and review on
+  their card, with an *Edit* link; finished books without a rating offer *Rate this book*. In the
+  3D bookcase, rated books carry a small gilded star on the spine, and their stars appear in the
+  hover tooltip.
 - **Favorites**: under the shelf button, a heart marked *Add to favorites* fills pink when clicked.
   Favorites are separate from shelves, so a book can be both *Reading* and a favorite, or a favorite
   without being on any shelf. Hearted books are listed on the **Favorites** tab in *My shelves*.
@@ -131,7 +137,8 @@ All data lives in a single SQLite file (`data/shelfie.db`, excluded from git).
   transaction, so the schema is never left half-upgraded.
 - **No SQL injection**: all queries use bound parameters.
 - **Input validation**: Server Actions accept only a validated book id, shelf name or favorite
-  flag. Book details are fetched from Project Gutenberg on the server.
+  flag, or a 1–5 rating and a review of at most 2,000 characters (the database enforces the same
+  limits). Book details are fetched from Project Gutenberg on the server.
 - **Confirmed removals**: removing a book (which also deletes its reading progress) needs a
   confirmation click.
 

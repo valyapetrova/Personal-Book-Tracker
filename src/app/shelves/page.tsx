@@ -25,6 +25,8 @@ async function BookcaseLoader() {
     author: book.author,
     shelf: book.shelf,
     coverSrc: book.coverUrl ? sameOriginCover(book.coverUrl) : null,
+    rating: book.rating,
+    review: book.review,
   }));
   return <Bookcase books={books} />;
 }

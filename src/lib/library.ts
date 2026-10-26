@@ -21,6 +21,8 @@ interface BookRow {
   text_url: string | null;
   shelf: ShelfId | null;
   is_favorite: number;
+  rating: number | null;
+  review: string | null;
   last_page: number;
   page_count: number | null;
   added_at: string;
@@ -28,7 +30,7 @@ interface BookRow {
 }
 
 const BOOK_COLUMNS = `id, title, author, summary, cover_url, text_url, shelf, is_favorite,
-  last_page, page_count, added_at, updated_at`;
+  rating, review, last_page, page_count, added_at, updated_at`;
 
 export type LibraryCounts = Record<ShelfId, number> & { favorites: number };
 
@@ -42,6 +44,8 @@ function toLibraryBook(row: BookRow): LibraryBook {
     textUrl: row.text_url,
     shelf: row.shelf,
     isFavorite: row.is_favorite === 1,
+    rating: row.rating,
+    review: row.review,
     lastPage: row.last_page,
     pageCount: row.page_count,
     addedAt: row.added_at,
@@ -85,13 +89,18 @@ export function getLibraryBook(id: number): LibraryBook | null {
   return row ? toLibraryBook(row) : null;
 }
 
-/** The shelf and favourite state of each of the given books (if in the library). */
+/** The shelf, favourite and rating state of each of the given books (if in the library). */
 export function getStatusesFor(ids: readonly number[]): Map<number, LibraryStatus> {
   if (ids.length === 0) return new Map();
   const rows = getDb()
-    .prepare("SELECT id, shelf, is_favorite FROM books WHERE id IN (SELECT value FROM json_each(?))")
-    .all(JSON.stringify(ids)) as unknown as { id: number; shelf: ShelfId | null; is_favorite: number }[];
-  return new Map(rows.map((row) => [row.id, { shelf: row.shelf, isFavorite: row.is_favorite === 1 }]));
+    .prepare("SELECT id, shelf, is_favorite, rating, review FROM books WHERE id IN (SELECT value FROM json_each(?))")
+    .all(JSON.stringify(ids)) as unknown as Pick<BookRow, "id" | "shelf" | "is_favorite" | "rating" | "review">[];
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      { shelf: row.shelf, isFavorite: row.is_favorite === 1, rating: row.rating, review: row.review },
+    ]),
+  );
 }
 
 /**
@@ -161,6 +170,17 @@ export function removeFavorite(id: number): void {
     db.prepare("DELETE FROM books WHERE id = ? AND shelf IS NULL").run(id);
     db.prepare("UPDATE books SET is_favorite = 0, favorited_at = NULL WHERE id = ?").run(id);
   });
+}
+
+/**
+ * Saves the user’s rating and review of a library book (null clears them).
+ * Returns false if the book is not in the library.
+ */
+export function saveReview(id: number, rating: number | null, review: string | null): boolean {
+  const result = getDb()
+    .prepare(`UPDATE books SET rating = ?, review = ?, reviewed_at = ${SQL_NOW} WHERE id = ?`)
+    .run(rating, review, id);
+  return result.changes > 0;
 }
 
 /** Remembers the reader position. Does nothing for books that are not in the library. */

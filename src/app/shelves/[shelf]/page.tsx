@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { BookCard } from "@/components/BookCard";
 import { BookGrid, BookGridSkeleton } from "@/components/BookGrid";
 import { EmptyState } from "@/components/EmptyState";
+import { RatingSummary } from "@/components/RatingSummary";
 import { ReadingProgress } from "@/components/ReadingProgress";
 import { ShelfPicker } from "@/components/ShelfPicker";
 import { listShelf } from "@/lib/library";
@@ -62,9 +63,27 @@ async function ShelfBooks({ shelf }: { shelf: string }) {
             <BookCard
               book={book}
               summary={book.summary}
-              details={<ReadingProgress lastPage={book.lastPage} pageCount={book.pageCount} />}
+              details={
+                <>
+                  <RatingSummary
+                    bookId={book.id}
+                    bookTitle={book.title}
+                    rating={book.rating}
+                    review={book.review}
+                    canRate={book.shelf === "finished"}
+                  />
+                  <ReadingProgress lastPage={book.lastPage} pageCount={book.pageCount} />
+                </>
+              }
               actions={
-                <ShelfPicker bookId={book.id} bookTitle={book.title} shelf={book.shelf} isFavorite={book.isFavorite}>
+                <ShelfPicker
+                  bookId={book.id}
+                  bookTitle={book.title}
+                  shelf={book.shelf}
+                  isFavorite={book.isFavorite}
+                  rating={book.rating}
+                  review={book.review}
+                >
                   <Link href={`/read/${book.id}`} className="button button-small button-primary">
                     {book.lastPage > 0 ? "Continue reading" : "Start reading"}
                   </Link>

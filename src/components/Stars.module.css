@@ -1,0 +1,17 @@
+.stars {
+  display: inline-flex;
+  gap: 1px;
+}
+
+.star {
+  width: 1rem;
+  height: 1rem;
+  fill: transparent;
+  stroke: var(--color-star);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.filled {
+  fill: var(--color-star);
+}

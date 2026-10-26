@@ -37,6 +37,10 @@ interface ContinuousReaderProps {
   /** Progress is only saved for books on a shelf. */
   isShelved: boolean;
   isFinished: boolean;
+  /** For the end-of-book prompt: the title and any existing rating/review. */
+  bookTitle: string;
+  rating: number | null;
+  review: string | null;
 }
 
 /** The pages currently in the DOM: a contiguous run starting at `first`. */
@@ -58,6 +62,9 @@ export function ContinuousReader({
   initialPages,
   isShelved,
   isFinished,
+  bookTitle,
+  rating,
+  review,
 }: ContinuousReaderProps) {
   // Props only seed the state: a later server refresh (e.g. after changing
   // shelf) must not reset what the user has scrolled through.
@@ -296,7 +303,13 @@ export function ContinuousReader({
         <section className={styles.end} aria-label="End of book">
           <p className={styles.endTitle}>The End</p>
           <p>You have reached the end of the book.</p>
-          <FinishBookButton bookId={bookId} isFinished={isFinished} />
+          <FinishBookButton
+            bookId={bookId}
+            bookTitle={bookTitle}
+            isFinished={isFinished}
+            rating={rating}
+            review={review}
+          />
         </section>
       )}
     </div>

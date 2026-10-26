@@ -9,6 +9,7 @@ import { BookGrid } from "./BookGrid";
 import { BookSummary } from "./BookSummary";
 import { EmptyState } from "./EmptyState";
 import { LoadMoreButton } from "./LoadMoreButton";
+import { RatingSummary } from "./RatingSummary";
 import { RetryButton } from "./RetryButton";
 import { ShelfPicker } from "./ShelfPicker";
 import styles from "./SearchResults.module.css";
@@ -69,7 +70,9 @@ export async function SearchResults({ query, count }: SearchResultsProps) {
       </h2>
 
       <BookGrid columns={4}>
-        {results.books.map((book) => (
+        {results.books.map((book) => {
+          const status = statuses.get(book.id);
+          return (
           <li key={book.id}>
             <BookCard
               book={book}
@@ -78,12 +81,25 @@ export async function SearchResults({ query, count }: SearchResultsProps) {
                   <BookSummary bookId={book.id} />
                 </Suspense>
               }
+              details={
+                status && (
+                  <RatingSummary
+                    bookId={book.id}
+                    bookTitle={book.title}
+                    rating={status.rating}
+                    review={status.review}
+                    canRate={status.shelf === "finished"}
+                  />
+                )
+              }
               actions={
                 <ShelfPicker
                   bookId={book.id}
                   bookTitle={book.title}
-                  shelf={statuses.get(book.id)?.shelf ?? null}
-                  isFavorite={statuses.get(book.id)?.isFavorite ?? false}
+                  shelf={status?.shelf ?? null}
+                  isFavorite={status?.isFavorite ?? false}
+                  rating={status?.rating ?? null}
+                  review={status?.review ?? null}
                 >
                   <Link href={`/read/${book.id}`} className="button button-small">
                     Read now
@@ -92,7 +108,8 @@ export async function SearchResults({ query, count }: SearchResultsProps) {
               }
             />
           </li>
-        ))}
+          );
+        })}
       </BookGrid>
 
       <div className={styles.more}>

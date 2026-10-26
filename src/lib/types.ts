@@ -22,6 +22,10 @@ export interface LibraryBook extends Book {
   /** null for a favourite that is not on any shelf. */
   shelf: ShelfId | null;
   isFavorite: boolean;
+  /** The user's 1-5 star rating, if given. */
+  rating: number | null;
+  /** The user's short review note, if given. */
+  review: string | null;
   /** Last page opened in the reader; 0 means the book has not been opened yet. */
   lastPage: number;
   /** Number of reader pages, known once the book has been opened. */
@@ -37,7 +41,4 @@ export interface ShelvedBook extends LibraryBook {
 }
 
 /** Where a book stands in the user's library, as shown on its card. */
-export interface LibraryStatus {
-  shelf: ShelfId | null;
-  isFavorite: boolean;
-}
+export type LibraryStatus = Pick<LibraryBook, "shelf" | "isFavorite" | "rating" | "review">;

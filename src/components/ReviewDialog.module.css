@@ -1,0 +1,139 @@
+.dialog {
+  width: min(28rem, calc(100% - 2 * var(--gutter)));
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.25);
+}
+
+.dialog::backdrop {
+  background: rgb(43 25 18 / 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.title {
+  font-size: 1.375rem;
+  overflow-wrap: anywhere;
+}
+
+.rating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border: 0;
+}
+
+.legend {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.9375rem;
+  text-align: center;
+}
+
+.stars {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.starLabel {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.starLabel:has(input:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.star {
+  width: 2.25rem;
+  height: 2.25rem;
+  transition: transform 120ms ease;
+}
+
+.starLabel:hover .star {
+  transform: scale(1.12);
+}
+
+.ratingWords {
+  min-height: 1.5em;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.noteLabel {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.optional {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.note {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  font: inherit;
+  font-size: 0.9375rem;
+  resize: vertical;
+}
+
+.note:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+
+.counter {
+  align-self: flex-end;
+  margin-top: calc(-1 * var(--space-2));
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.error {
+  color: var(--color-danger);
+  font-size: 0.875rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.textButton {
+  margin-right: auto;
+  padding: var(--space-1) 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.textButton:hover {
+  color: var(--color-danger);
+}

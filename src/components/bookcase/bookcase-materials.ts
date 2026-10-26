@@ -157,17 +157,27 @@ export interface SpineMaps {
 
 type SpineLayer = "colour" | "metal" | "rough";
 
-/** Cloth spine with gold bands, a small ornament and the title (gold on dark cloth). */
-export function spineMaps(title: string, cloth: string, fontFamily: string): SpineMaps {
+/**
+ * Cloth spine with gold bands, a small ornament and the title (gold on dark
+ * cloth). Rated books also get a gilded star near the top.
+ */
+export function spineMaps(title: string, cloth: string, fontFamily: string, rated: boolean): SpineMaps {
   const draw = (layer: SpineLayer) => {
     const { canvas, context } = createCanvas(128, 1024);
-    drawSpine(context, layer, title, cloth, fontFamily);
+    drawSpine(context, layer, title, cloth, fontFamily, rated);
     return toTexture(canvas, layer === "colour");
   };
   return { map: draw("colour"), metalnessMap: draw("metal"), roughnessMap: draw("rough") };
 }
 
-function drawSpine(context: CanvasRenderingContext2D, layer: SpineLayer, title: string, cloth: string, fontFamily: string) {
+function drawSpine(
+  context: CanvasRenderingContext2D,
+  layer: SpineLayer,
+  title: string,
+  cloth: string,
+  fontFamily: string,
+  rated: boolean,
+) {
   const { width, height } = context.canvas;
   const darkCloth = isDark(cloth);
   // In the metal and roughness layers, "gold" is white (metal) / dark grey (shiny).
@@ -207,16 +217,20 @@ function drawSpine(context: CanvasRenderingContext2D, layer: SpineLayer, title: 
     context.fill();
   }
 
+  // A gilded star under the top ornament marks a book the user has rated.
+  const starSpace = rated ? 70 : 0;
+  if (rated) drawStar(context, width / 2, 150, 24, gold);
+
   // Title, running top to bottom: gold foil on dark cloth, dark ink on light cloth.
   const titleIsGold = darkCloth;
   if (layer !== "colour" && !titleIsGold) return;
   context.save();
-  context.translate(width / 2, height / 2);
+  context.translate(width / 2, height / 2 + starSpace / 2);
   context.rotate(Math.PI / 2);
   context.font = `600 50px ${fontFamily}`;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  const label = fitText(context, title, height - 290);
+  const label = fitText(context, title, height - 290 - starSpace);
   if (layer === "colour" && titleIsGold) {
     context.fillStyle = GOLD_SHADE; // a slight shadow gives the foil some depth
     context.fillText(label, 1.5, 1.5);
@@ -224,6 +238,19 @@ function drawSpine(context: CanvasRenderingContext2D, layer: SpineLayer, title: 
   context.fillStyle = titleIsGold ? gold : "#3b2416";
   context.fillText(label, 0, 0);
   context.restore();
+}
+
+/** A five-pointed star centred on (x, y). */
+function drawStar(context: CanvasRenderingContext2D, x: number, y: number, radius: number, fill: string) {
+  context.beginPath();
+  for (let point = 0; point < 10; point++) {
+    const r = point % 2 === 0 ? radius : radius * 0.45;
+    const angle = -Math.PI / 2 + (point * Math.PI) / 5;
+    context.lineTo(x + Math.cos(angle) * r, y + Math.sin(angle) * r);
+  }
+  context.closePath();
+  context.fillStyle = fill;
+  context.fill();
 }
 
 /** Cream page edges with fine lines, for the top, bottom and fore-edge of a book. */

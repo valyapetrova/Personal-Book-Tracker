@@ -4,6 +4,7 @@ import { useEffect, useId, useOptimistic, useRef, useState, useTransition, type 
 
 import { removeBookAction, setFavoriteAction, shelveBookAction, type ActionResult } from "@/app/actions";
 import { getShelfInfo, SHELVES, type ShelfId } from "@/lib/shelves";
+import { useReviewPrompt } from "./ReviewPrompt";
 import styles from "./ShelfPicker.module.css";
 
 interface ShelfPickerProps {
@@ -13,6 +14,9 @@ interface ShelfPickerProps {
   /** The shelf the book is currently on, or null if it is not shelved. */
   shelf: ShelfId | null;
   isFavorite: boolean;
+  /** Current rating and review, used to pre-fill the review dialog. */
+  rating: number | null;
+  review: string | null;
   /** Extra controls shown next to the remove button, e.g. a "Read" link. */
   children?: ReactNode;
   /** Hide the remove button (used where removing would be surprising). */
@@ -22,27 +26,44 @@ interface ShelfPickerProps {
 /**
  * A book's library controls: a "Want to read ▾" button whose menu offers the
  * other shelves, a favourite heart, and a remove link. Changes show at once
- * (optimistically) and roll back if the server reports an error.
+ * (optimistically) and roll back if the server reports an error. Moving a
+ * book to "Finished" asks for a rating and a short review.
  */
-export function ShelfPicker({ bookId, bookTitle, shelf, isFavorite, children, allowRemove = true }: ShelfPickerProps) {
+export function ShelfPicker({
+  bookId,
+  bookTitle,
+  shelf,
+  isFavorite,
+  rating,
+  review,
+  children,
+  allowRemove = true,
+}: ShelfPickerProps) {
   const [optimisticShelf, setOptimisticShelf] = useOptimistic(shelf);
   const [optimisticFavorite, setOptimisticFavorite] = useOptimistic(isFavorite);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const promptReview = useReviewPrompt();
 
-  function run(applyOptimistic: () => void, action: () => Promise<ActionResult>) {
+  function run(applyOptimistic: () => void, action: () => Promise<ActionResult>, onSuccess?: () => void) {
     setError(null);
     setConfirmingRemove(false);
     startTransition(async () => {
       applyOptimistic();
       const result = await action();
       if (!result.ok) setError(result.error);
+      else onSuccess?.();
     });
   }
 
   const chooseShelf = (next: ShelfId) =>
-    run(() => setOptimisticShelf(next), () => shelveBookAction(bookId, next));
+    run(
+      () => setOptimisticShelf(next),
+      () => shelveBookAction(bookId, next),
+      // Just finished it: ask what the reader thought.
+      next === "finished" ? () => promptReview({ bookId, bookTitle, rating, review, justFinished: true }) : undefined,
+    );
 
   return (
     <div className={styles.picker} aria-busy={isPending}>

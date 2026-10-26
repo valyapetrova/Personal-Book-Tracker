@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { shelveBookAction } from "@/app/actions";
 import { getShelfInfo, type ShelfId } from "@/lib/shelves";
+import { useReviewPrompt } from "../ReviewPrompt";
+import { Stars } from "../Stars";
 import type { BookcaseBook, BookcaseHandle } from "./bookcase-scene";
 import styles from "./Bookcase.module.css";
 
@@ -40,6 +42,7 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
   const [hovered, setHovered] = useState<HoveredBook | null>(null);
   const [isTouch, setIsTouch] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const promptReview = useReviewPrompt();
 
   // Keep the scene in step with the server: after a move, books glide to their new place.
   useEffect(() => {
@@ -62,6 +65,10 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
       const result = await shelveBookAction(book.id, book.shelf);
       if (result.ok) {
         setNotice({ kind: "moved", book, from });
+        // Just finished it: ask what the reader thought.
+        if (book.shelf === "finished") {
+          promptReview({ bookId: book.id, bookTitle: book.title, rating: book.rating, review: book.review, justFinished: true });
+        }
       } else {
         // Put the book back where the server says it is.
         handleRef.current?.setBooks(booksRef.current);
@@ -107,7 +114,8 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
       handleRef.current?.dispose();
       handleRef.current = null;
     };
-  }, [router]);
+    // Both are stable, so the scene is built once per mount.
+  }, [router, promptReview]);
 
   async function undo(book: BookcaseBook, from: ShelfId) {
     setNotice(null);
@@ -137,6 +145,7 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
           >
             <strong>{hovered.book.title}</strong>
             <span>{hovered.book.author}</span>
+            {hovered.book.rating !== null && <Stars rating={hovered.book.rating} />}
             <span className={styles.tooltipHint}>
               {getShelfInfo(hovered.book.shelf).fullLabel} · {isTouch ? "Tap again to read" : "Click to read"}
             </span>
