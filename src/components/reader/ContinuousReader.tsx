@@ -79,6 +79,7 @@ export function ContinuousReader({
   /** Page to scroll to once the next render has put it in the DOM. */
   const scrollTargetRef = useRef<number | null>(null);
   const unsavedPageRef = useRef<number | null>(null);
+  const hasMountedRef = useRef(false);
 
   const lastLoaded = loaded.first + loaded.pages.length - 1;
   const percent = Math.round((currentPage / pageCount) * 100);
@@ -158,6 +159,18 @@ export function ContinuousReader({
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [lastLoaded, pageCount, status, loadNext]);
+
+  // Next.js keeps this page mounted but hidden (<Activity>) after navigating
+  // away, and coming back scrolls to the top. Return to the page the reader
+  // was on, before the scroll position is read below.
+  const resumeReading = useEffectEvent(() => {
+    if (currentPage > loaded.first) scrollToPage(currentPage);
+  });
+
+  useEffect(() => {
+    if (hasMountedRef.current) resumeReading();
+    hasMountedRef.current = true;
+  }, []);
 
   // Work out which page is being read from the scroll position.
   useEffect(() => {

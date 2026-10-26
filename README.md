@@ -75,12 +75,32 @@ Then open <http://localhost:3000>. The database is created automatically on firs
 | `npm start` | Serve the production build |
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | Run the TypeScript compiler |
+| `npm test` | Run the unit tests (Vitest) |
+| `npm run test:e2e` | Build the app and run the browser tests (Playwright) |
 
 ### Configuration
 
 | Variable | Default | Purpose |
 | -------- | ------- | ------- |
 | `SHELFIE_DB_PATH` | `./data/shelfie.db` | Location of the SQLite database file |
+
+## Testing
+
+**Unit tests** (`tests/unit`, [Vitest](https://vitest.dev)) cover the pure logic and the data layer: Gutenberg feed parsing, text extraction and pagination, input validation, the library queries, and the Server Actions. Every test file gets its own temporary SQLite database, and the Gutenberg catalogue is mocked, so they run offline in well under a second.
+
+```bash
+npm test            # once
+npm run test:watch  # re-run on save
+```
+
+**End-to-end tests** (`tests/e2e`, [Playwright](https://playwright.dev)) drive a production build in a real browser: searching and "Find more books", shelving and the shelf dropdown, DNF, favorites, ratings and reviews, the infinite-scroll reader (including resuming where you left off), and dragging books into the 3D bookcase's bin. The server runs on port 3210 with its own database in `test-results/`, so your library in `data/` is never touched. These tests need an internet connection, because they read real books from Project Gutenberg.
+
+```bash
+npx playwright install chromium   # first time only
+npm run test:e2e
+```
+
+To use an installed browser instead of downloading one, set `PLAYWRIGHT_CHANNEL`, for example `msedge` or `chrome`.
 
 ## Project structure
 
@@ -106,6 +126,9 @@ src/
     ├── shelves.ts            Shelf definitions shared by server and client
     ├── validation.ts         Runtime validation of untrusted input
     └── types.ts              Shared types
+tests/
+├── unit/                     Vitest tests for src/lib and the Server Actions
+└── e2e/                      Playwright browser tests (support/ holds fixtures and UI helpers)
 ```
 
 ### How data flows
