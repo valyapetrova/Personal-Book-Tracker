@@ -1,0 +1,12 @@
+/* Shared by the error and not-found pages. */
+
+.page {
+  padding-block: var(--space-7);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+}

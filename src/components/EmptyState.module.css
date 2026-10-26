@@ -1,0 +1,19 @@
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-7) var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+.title {
+  font-size: 1.25rem;
+}
+
+.message {
+  max-width: 32rem;
+  color: var(--color-text-muted);
+}

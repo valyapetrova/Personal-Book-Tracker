@@ -1,0 +1,128 @@
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.picker[aria-busy="true"] .options {
+  opacity: 0.7;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  transition: opacity 150ms ease;
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-1);
+  border: 0;
+  border-inline-start: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.option:first-child {
+  border-inline-start: 0;
+}
+
+.option:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+.option:focus-visible {
+  outline-offset: -2px;
+}
+
+.option[data-shelf="want-to-read"] {
+  --shelf-color: var(--shelf-want-to-read);
+}
+
+.option[data-shelf="reading"] {
+  --shelf-color: var(--shelf-reading);
+}
+
+.option[data-shelf="finished"] {
+  --shelf-color: var(--shelf-finished);
+}
+
+.option[aria-pressed="true"] {
+  background: var(--shelf-color);
+  color: var(--color-on-shelf);
+  cursor: default;
+}
+
+.check {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+.remove {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin-inline-start: auto;
+  font-size: 0.8125rem;
+}
+
+.confirmText {
+  color: var(--color-text-muted);
+}
+
+.textButton {
+  padding: var(--space-1) 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.textButton:hover {
+  color: var(--color-text);
+}
+
+.danger,
+.danger:hover {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.error {
+  color: var(--color-danger);
+  font-size: 0.8125rem;
+}
