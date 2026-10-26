@@ -6,7 +6,7 @@
 
 .stage {
   position: relative;
-  height: clamp(420px, 68vh, 720px);
+  height: clamp(460px, 70vh, 780px);
   overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);

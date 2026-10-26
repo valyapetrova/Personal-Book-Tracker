@@ -46,7 +46,7 @@ the app. There is no login: it is a personal app with one local database.
 | Framework | [Next.js 16](https://nextjs.org) (App Router, Server Components, Server Actions, Cache Components) with TypeScript |
 | Styling  | Plain CSS: `globals.css` for design tokens and shared utilities, plus a CSS Module per component. No UI library. |
 | Database | SQLite through Node's built-in [`node:sqlite`](https://nodejs.org/api/sqlite.html), so there is no native build step |
-| 3D | [three.js](https://threejs.org) for the bookcase, loaded only on that page. It builds on the `webgl_interactive_cubes`, `misc_controls_orbit` and `webgl_shadow_contact` examples. |
+| 3D | [three.js](https://threejs.org) for the bookcase, loaded only on that page. It builds on the `webgl_interactive_cubes`, `misc_controls_orbit` and `webgl_shadow_contact` examples. All materials are drawn procedurally in `bookcase-materials.ts`, so no image files are needed: walnut grain with bevelled edges, riveted brass plates with engraved text, cloth spines with gold foil, and a black textured bin. A studio environment map (`RoomEnvironment`) makes the metal and foil reflect light. |
 | Book data | Project Gutenberg's own catalog: the OPDS search feed for search, per-book RDF records for details, plus covers and texts. XML is parsed with [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser). |
 
 ## Getting started

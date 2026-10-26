@@ -1,6 +1,6 @@
 /* Same size as the bookcase, so the page doesn't jump when it loads. */
 .placeholder {
-  height: clamp(420px, 68vh, 720px);
+  height: clamp(460px, 70vh, 780px);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface-muted);
