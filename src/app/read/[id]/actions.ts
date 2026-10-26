@@ -2,7 +2,7 @@
 
 import { getBookPages } from "@/lib/book-text";
 import { getBookDetails } from "@/lib/gutenberg";
-import { getShelvedBook } from "@/lib/library";
+import { getLibraryBook } from "@/lib/library";
 import type { Page } from "@/lib/reader";
 import { parsePositiveInt } from "@/lib/validation";
 
@@ -26,7 +26,7 @@ export async function loadReaderPagesAction(
   if (id === null || from === null || size === null) return { ok: false, error: "Invalid request." };
 
   try {
-    const book = getShelvedBook(id) ?? (await getBookDetails(id));
+    const book = getLibraryBook(id) ?? (await getBookDetails(id));
     if (!book) return { ok: false, error: "Book not found." };
     const pages = await getBookPages(book);
     return { ok: true, pages: pages.slice(from - 1, from - 1 + Math.min(size, MAX_PAGES_PER_REQUEST)) };

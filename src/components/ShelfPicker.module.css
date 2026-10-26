@@ -1,78 +1,100 @@
 .picker {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
-.picker[aria-busy="true"] .options {
-  opacity: 0.7;
+.picker[aria-busy="true"] .split {
+  opacity: 0.75;
 }
 
-.options {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+/* ---- Shelf split button ---------------------------------------------------- */
+
+/* "Want to read" is beige whether or not the book is on that shelf yet. */
+.split {
+  --shelf-color: var(--shelf-want-to-read);
+  --shelf-text: var(--shelf-want-to-read-text);
+
+  position: relative;
+  display: flex;
   transition: opacity 150ms ease;
 }
 
-.option {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  min-height: 2.5rem;
-  padding: var(--space-2) var(--space-1);
-  border: 0;
-  border-inline-start: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.2;
-  text-align: center;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
-}
-
-.option:first-child {
-  border-inline-start: 0;
-}
-
-.option:hover {
-  background: var(--color-surface-muted);
-  color: var(--color-text);
-}
-
-.option:focus-visible {
-  outline-offset: -2px;
-}
-
-.option[data-shelf="want-to-read"] {
+.split[data-shelf="want-to-read"] {
   --shelf-color: var(--shelf-want-to-read);
   --shelf-text: var(--shelf-want-to-read-text);
 }
 
-.option[data-shelf="reading"] {
+.split[data-shelf="reading"] {
   --shelf-color: var(--shelf-reading);
   --shelf-text: var(--shelf-reading-text);
 }
 
-.option[data-shelf="finished"] {
+.split[data-shelf="finished"] {
   --shelf-color: var(--shelf-finished);
   --shelf-text: var(--shelf-finished-text);
 }
 
-.option[aria-pressed="true"] {
-  background: var(--shelf-color);
-  color: var(--shelf-text);
-  cursor: default;
+.split[data-shelf="dnf"] {
+  --shelf-color: var(--shelf-dnf);
+  --shelf-text: var(--shelf-dnf-text);
 }
 
-.check {
+.main,
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  border: 1px solid var(--shelf-color);
+  background: var(--shelf-color);
+  color: var(--shelf-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: filter 150ms ease;
+}
+
+.main {
+  flex: 1;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.toggle {
+  width: 2.5rem;
+  border-left-color: color-mix(in srgb, var(--shelf-text) 35%, transparent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.toggle svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 150ms ease;
+}
+
+.toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.main:hover,
+.toggle:hover {
+  filter: brightness(1.08);
+}
+
+.main:focus-visible,
+.toggle:focus-visible {
+  position: relative;
+  z-index: 1;
+}
+
+.check,
+.menuCheck {
   flex: none;
   width: 0.875rem;
   height: 0.875rem;
@@ -83,12 +105,128 @@
   stroke-linejoin: round;
 }
 
+/* ---- Dropdown menu ---------------------------------------------------------- */
+
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  left: 0;
+  z-index: 20;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  list-style: none;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+.menuItem:hover,
+.menuItem:focus-visible {
+  background: var(--color-surface-muted);
+  outline-offset: -2px;
+}
+
+.menuItem[aria-checked="true"] {
+  font-weight: 700;
+}
+
+.menuCheck {
+  margin-left: auto;
+}
+
+.menuItem[data-shelf="want-to-read"] .swatch {
+  background: var(--shelf-want-to-read);
+}
+
+.menuItem[data-shelf="reading"] .swatch {
+  background: var(--shelf-reading);
+}
+
+.menuItem[data-shelf="finished"] .swatch {
+  background: var(--shelf-finished);
+}
+
+.menuItem[data-shelf="dnf"] .swatch {
+  background: var(--shelf-dnf);
+}
+
+.swatch {
+  flex: none;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: var(--radius-full);
+}
+
+/* ---- Favourite heart ---------------------------------------------------------- */
+
+.favorite {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.favorite:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+.heart {
+  width: 1.375rem;
+  height: 1.375rem;
+  fill: transparent;
+  stroke: var(--color-favorite);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  transition: fill 150ms ease;
+}
+
+.favorite[aria-pressed="true"] {
+  color: var(--color-text);
+}
+
+.favorite[aria-pressed="true"] .heart {
+  fill: var(--color-favorite);
+  animation: pop 300ms ease-out;
+}
+
+@keyframes pop {
+  40% {
+    transform: scale(1.3);
+  }
+}
+
+/* ---- Footer: read link + remove ----------------------------------------------- */
+
 .footer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2) var(--space-3);
+  margin-top: var(--space-1);
 }
 
 .remove {

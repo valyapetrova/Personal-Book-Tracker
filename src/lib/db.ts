@@ -65,6 +65,59 @@ const MIGRATIONS: readonly string[] = [
     fetched_at  TEXT    NOT NULL DEFAULT (${SQL_NOW})
   ) STRICT;
   `,
+  `
+  -- Adds the "Did not finish" shelf. SQLite cannot change a CHECK constraint
+  -- in place, so the table is rebuilt; this runs inside the migration
+  -- transaction, so no data can be lost half-way.
+  CREATE TABLE books_new (
+    id          INTEGER PRIMARY KEY CHECK (id > 0),
+    title       TEXT    NOT NULL CHECK (length(title) > 0),
+    author      TEXT    NOT NULL,
+    summary     TEXT,
+    cover_url   TEXT,
+    text_url    TEXT,
+    shelf       TEXT    NOT NULL CHECK (shelf IN ('want-to-read', 'reading', 'finished', 'dnf')),
+    last_page   INTEGER NOT NULL DEFAULT 0 CHECK (last_page >= 0),
+    page_count  INTEGER CHECK (page_count IS NULL OR page_count > 0),
+    added_at    TEXT    NOT NULL DEFAULT (${SQL_NOW}),
+    updated_at  TEXT    NOT NULL DEFAULT (${SQL_NOW})
+  ) STRICT;
+
+  INSERT INTO books_new (id, title, author, summary, cover_url, text_url, shelf, last_page, page_count, added_at, updated_at)
+    SELECT id, title, author, summary, cover_url, text_url, shelf, last_page, page_count, added_at, updated_at FROM books;
+
+  DROP TABLE books;
+  ALTER TABLE books_new RENAME TO books;
+  CREATE INDEX books_shelf_updated_idx ON books (shelf, updated_at DESC);
+  `,
+  `
+  -- Adds favourites. A favourite need not be on a shelf, so "shelf" becomes
+  -- optional; every row must still be on a shelf, a favourite, or both.
+  CREATE TABLE books_new (
+    id           INTEGER PRIMARY KEY CHECK (id > 0),
+    title        TEXT    NOT NULL CHECK (length(title) > 0),
+    author       TEXT    NOT NULL,
+    summary      TEXT,
+    cover_url    TEXT,
+    text_url     TEXT,
+    shelf        TEXT    CHECK (shelf IS NULL OR shelf IN ('want-to-read', 'reading', 'finished', 'dnf')),
+    is_favorite  INTEGER NOT NULL DEFAULT 0 CHECK (is_favorite IN (0, 1)),
+    favorited_at TEXT,
+    last_page    INTEGER NOT NULL DEFAULT 0 CHECK (last_page >= 0),
+    page_count   INTEGER CHECK (page_count IS NULL OR page_count > 0),
+    added_at     TEXT    NOT NULL DEFAULT (${SQL_NOW}),
+    updated_at   TEXT    NOT NULL DEFAULT (${SQL_NOW}),
+    CHECK (shelf IS NOT NULL OR is_favorite = 1)
+  ) STRICT;
+
+  INSERT INTO books_new (id, title, author, summary, cover_url, text_url, shelf, last_page, page_count, added_at, updated_at)
+    SELECT id, title, author, summary, cover_url, text_url, shelf, last_page, page_count, added_at, updated_at FROM books;
+
+  DROP TABLE books;
+  ALTER TABLE books_new RENAME TO books;
+  CREATE INDEX books_shelf_updated_idx ON books (shelf, updated_at DESC);
+  CREATE INDEX books_favorites_idx ON books (favorited_at DESC) WHERE is_favorite = 1;
+  `,
 ];
 
 declare global {
@@ -75,6 +128,23 @@ declare global {
 export function getDb(): DatabaseSync {
   globalThis.__shelfieDb ??= openDatabase();
   return globalThis.__shelfieDb;
+}
+
+/**
+ * Runs several statements as one unit: either all of their changes are saved
+ * or none are. `BEGIN IMMEDIATE` takes the write lock up front.
+ */
+export function transaction<T>(work: (db: DatabaseSync) => T): T {
+  const db = getDb();
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const result = work(db);
+    db.exec("COMMIT");
+    return result;
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 function openDatabase(): DatabaseSync {

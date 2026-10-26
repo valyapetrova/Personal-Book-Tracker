@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { ShelfTabList, ShelfTabs } from "@/components/ShelfTabs";
-import { countBooksByShelf } from "@/lib/library";
+import { countLibrary } from "@/lib/library";
 import styles from "./layout.module.css";
 
 export const metadata: Metadata = {
@@ -27,5 +27,5 @@ export default function ShelvesLayout({ children }: LayoutProps<"/shelves">) {
 
 async function ShelfTabsWithCounts() {
   await connection();
-  return <ShelfTabs counts={countBooksByShelf()} />;
+  return <ShelfTabs counts={countLibrary()} />;
 }

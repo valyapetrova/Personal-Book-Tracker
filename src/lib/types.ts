@@ -17,9 +17,11 @@ export interface Book {
 /** A search result: the basics, before the full details have been loaded. */
 export type BookListing = Pick<Book, "id" | "title" | "author" | "coverUrl">;
 
-/** A book the user has placed on one of their shelves. */
-export interface ShelvedBook extends Book {
-  shelf: ShelfId;
+/** A book in the user's library: on a shelf, a favourite, or both. */
+export interface LibraryBook extends Book {
+  /** null for a favourite that is not on any shelf. */
+  shelf: ShelfId | null;
+  isFavorite: boolean;
   /** Last page opened in the reader; 0 means the book has not been opened yet. */
   lastPage: number;
   /** Number of reader pages, known once the book has been opened. */
@@ -27,4 +29,15 @@ export interface ShelvedBook extends Book {
   /** ISO 8601 timestamps (UTC). */
   addedAt: string;
   updatedAt: string;
+}
+
+/** A library book that is on one of the shelves. */
+export interface ShelvedBook extends LibraryBook {
+  shelf: ShelfId;
+}
+
+/** Where a book stands in the user's library, as shown on its card. */
+export interface LibraryStatus {
+  shelf: ShelfId | null;
+  isFavorite: boolean;
 }

@@ -34,7 +34,32 @@ export async function shelveBookAction(bookId: number, shelf: ShelfId): Promise<
   return { ok: true };
 }
 
-/** Removes a book from the user's shelves, together with its reading progress. */
+/** Adds a book to, or removes it from, the user's favourites. */
+export async function setFavoriteAction(bookId: number, favorite: boolean): Promise<ActionResult> {
+  try {
+    const id = parsePositiveInt(bookId);
+    if (id === null) throw new ValidationError("Invalid book id.");
+    if (typeof favorite !== "boolean") throw new ValidationError("Invalid favourite value.");
+
+    if (!favorite) {
+      library.removeFavorite(id);
+    } else if (!library.favoriteLibraryBook(id)) {
+      // Not in the library yet: its details come from Project Gutenberg, never from the client.
+      const book = await getBookDetails(id);
+      if (!book) throw new ValidationError("This book does not exist on Project Gutenberg.");
+      library.addFavorite(book);
+    }
+  } catch (error) {
+    return failure(error, "Could not update your favourites. Please try again.");
+  }
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Takes a book off the user's shelves. Non-favourites are deleted with their
+ * reading progress; favourites stay in the Favourites list.
+ */
 export async function removeBookAction(bookId: number): Promise<ActionResult> {
   try {
     const id = parsePositiveInt(bookId);

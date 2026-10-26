@@ -9,15 +9,25 @@ the app. There is no login: it is a personal app with one local database.
 - **Discover**: search by title or author. With no search, the most popular books are shown.
   Each book shows its cover, title, author and a short description. Results come 20 at a time,
   4 per row on wide screens; **Find more books** adds the next 20 below.
-- **Three shelves**: *Want to read*, *Reading* and *Finished*. Add a book to a shelf, move it
-  between shelves or remove it, from the search results, the shelf pages or the reader.
+- **Shelves**: *Want to read*, *Reading*, *Finished* and *Did not finish*. Every book card has a
+  **Want to read ▾** button: one click puts the book on *Want to read*, and the arrow opens a menu
+  with *Reading*, *Finished* and *Did not finish*. Once a book is shelved, the button shows its
+  shelf in that shelf's colour. The menu works with the keyboard (arrow keys, Enter, Escape).
+- **Favorites**: under the shelf button, a heart marked *Add to favorites* fills pink when clicked.
+  Favorites are separate from shelves, so a book can be both *Reading* and a favorite, or a favorite
+  without being on any shelf. Hearted books are listed on the **Favorites** tab in *My shelves*.
 - **3D bookcase**: *My shelves* opens on an animated wooden bookcase with one shelf per list. Each
   book stands spine-out with its title on the spine, and the books drop into place when the page
   opens. Hover a book (or tap it on a phone) to pull it out and turn it to show its cover; click it
-  (or tap again) to open it. You can drag to look around. The animations are reduced if your system
-  asks for less motion.
-- **My shelves**: next to the bookcase, one tab per shelf lists its books with a live count; this
-  is where you move or remove books.
+  (or tap again) to open it. Drag a book onto another shelf to move it. The animations are reduced
+  if your system asks for less motion.
+- **DNF (did not finish) bin**: a wastebasket stands beside the bookcase. Drag a book into it to
+  mark it as *did not finish*, or drag it back out onto any shelf. The bin glows when a book is
+  over it, and every drop can be undone. DNF books also have their own **DNF** tab, and keep their
+  reading progress.
+- **My shelves**: next to the bookcase, one tab per shelf, plus **DNF** and **Favorites**, lists
+  the books with a live count. This is where you move or remove books. Removing a favorite from the
+  shelves keeps it on the Favorites tab.
 - **In-app reader**: books are downloaded once from Project Gutenberg and shown as one continuous
   text. Keep scrolling and the next pages load automatically. Prose is re-flowed for any screen
   width, and page numbers are marked in the margin. A sticky bar above the text shows your page
@@ -112,16 +122,16 @@ All data lives in a single SQLite file (`data/shelfie.db`, excluded from git).
 
 - **Crash-safe writes**: WAL journaling with `synchronous = FULL`. A committed change survives a
   crash or power loss, and a half-finished write is never visible.
-- **Atomic changes**: every change is a single SQL statement, and SQLite applies each one completely
-  or not at all.
-- **The database enforces correctness**: `STRICT` tables reject values of the wrong type, and
-  `CHECK` constraints reject unknown shelves and invalid ids or page numbers. This holds even if
-  application code has a bug.
+- **Atomic changes**: each change is a single SQL statement or one transaction, so it is applied
+  completely or not at all.
+- **The database enforces correctness**: `STRICT` tables reject values of the wrong type. `CHECK`
+  constraints reject unknown shelves and invalid ids or page numbers, and require every saved book to
+  be on a shelf, a favorite, or both. This holds even if application code has a bug.
 - **Safe migrations**: schema changes are versioned with `PRAGMA user_version` and applied in one
   transaction, so the schema is never left half-upgraded.
 - **No SQL injection**: all queries use bound parameters.
-- **Input validation**: Server Actions accept only a validated book id and shelf name. Book details
-  are fetched from Project Gutenberg on the server.
+- **Input validation**: Server Actions accept only a validated book id, shelf name or favorite
+  flag. Book details are fetched from Project Gutenberg on the server.
 - **Confirmed removals**: removing a book (which also deletes its reading progress) needs a
   confirmation click.
 

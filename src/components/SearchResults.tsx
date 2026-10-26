@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { searchBooks } from "@/lib/gutenberg";
-import { getShelvesFor } from "@/lib/library";
+import { getStatusesFor } from "@/lib/library";
 import { BookCard, SummarySkeleton } from "./BookCard";
 import { BookGrid } from "./BookGrid";
 import { BookSummary } from "./BookSummary";
@@ -58,9 +58,9 @@ export async function SearchResults({ query, count }: SearchResultsProps) {
     );
   }
 
-  // Shelf membership changes with every action, so read it per request.
+  // Shelves and favourites change with every action, so read them per request.
   await connection();
-  const shelves = getShelvesFor(results.books.map((book) => book.id));
+  const statuses = getStatusesFor(results.books.map((book) => book.id));
 
   return (
     <section aria-labelledby="results-heading" className={styles.results}>
@@ -79,7 +79,12 @@ export async function SearchResults({ query, count }: SearchResultsProps) {
                 </Suspense>
               }
               actions={
-                <ShelfPicker bookId={book.id} bookTitle={book.title} shelf={shelves.get(book.id) ?? null}>
+                <ShelfPicker
+                  bookId={book.id}
+                  bookTitle={book.title}
+                  shelf={statuses.get(book.id)?.shelf ?? null}
+                  isFavorite={statuses.get(book.id)?.isFavorite ?? false}
+                >
                   <Link href={`/read/${book.id}`} className="button button-small">
                     Read now
                   </Link>

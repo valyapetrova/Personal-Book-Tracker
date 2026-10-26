@@ -31,16 +31,22 @@ async function ShelfBooks({ shelf }: { shelf: string }) {
 
   await connection();
   const books = listShelf(shelf);
-  const { label, emptyMessage } = getShelfInfo(shelf);
+  const { fullLabel, emptyMessage } = getShelfInfo(shelf);
 
   if (books.length === 0) {
     return (
       <EmptyState
-        title={`Your “${label}” shelf is empty`}
+        title={`Your “${fullLabel}” shelf is empty`}
         action={
-          <Link href="/" className="button button-primary">
-            Discover books
-          </Link>
+          shelf === "dnf" ? (
+            <Link href="/shelves" className="button button-primary">
+              Open the bookcase
+            </Link>
+          ) : (
+            <Link href="/" className="button button-primary">
+              Discover books
+            </Link>
+          )
         }
       >
         {emptyMessage}
@@ -49,7 +55,7 @@ async function ShelfBooks({ shelf }: { shelf: string }) {
   }
 
   return (
-    <section aria-label={`${label} shelf`}>
+    <section aria-label={`${fullLabel} shelf`}>
       <BookGrid>
         {books.map((book) => (
           <li key={book.id}>
@@ -58,7 +64,7 @@ async function ShelfBooks({ shelf }: { shelf: string }) {
               summary={book.summary}
               details={<ReadingProgress lastPage={book.lastPage} pageCount={book.pageCount} />}
               actions={
-                <ShelfPicker bookId={book.id} bookTitle={book.title} shelf={book.shelf}>
+                <ShelfPicker bookId={book.id} bookTitle={book.title} shelf={book.shelf} isFavorite={book.isFavorite}>
                   <Link href={`/read/${book.id}`} className="button button-small button-primary">
                     {book.lastPage > 0 ? "Continue reading" : "Start reading"}
                   </Link>

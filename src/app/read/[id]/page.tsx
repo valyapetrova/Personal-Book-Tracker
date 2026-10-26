@@ -9,10 +9,10 @@ import { RetryButton } from "@/components/RetryButton";
 import { ShelfPicker } from "@/components/ShelfPicker";
 import { getBookPages, TextNotAvailableError } from "@/lib/book-text";
 import { getBookDetails } from "@/lib/gutenberg";
-import { getShelvedBook } from "@/lib/library";
+import { getLibraryBook } from "@/lib/library";
 import type { Page } from "@/lib/reader";
 import { getShelfInfo } from "@/lib/shelves";
-import type { Book, ShelvedBook } from "@/lib/types";
+import type { Book, LibraryBook } from "@/lib/types";
 import { firstParam, parsePositiveInt } from "@/lib/validation";
 import styles from "./page.module.css";
 
@@ -32,19 +32,19 @@ export default function ReaderPage({ params, searchParams }: PageProps<"/read/[i
 }
 
 type ReaderData =
-  | { status: "ok"; book: Book; shelved: ShelvedBook | null; pages: Page[] }
+  | { status: "ok"; book: Book; saved: LibraryBook | null; pages: Page[] }
   | { status: "not-found" }
   | { status: "error"; book: Book | null; reason: "no-text" | "unreachable" };
 
 /** Loads the book's details (from the library, else the catalog) and its paginated text. */
 async function loadBook(bookId: number): Promise<ReaderData> {
   await connection();
-  const shelved = getShelvedBook(bookId);
-  let book: Book | null = shelved;
+  const saved = getLibraryBook(bookId);
+  let book: Book | null = saved;
   try {
     book ??= await getBookDetails(bookId);
     if (!book) return { status: "not-found" };
-    return { status: "ok", book, shelved, pages: await getBookPages(book) };
+    return { status: "ok", book, saved, pages: await getBookPages(book) };
   } catch (error) {
     if (error instanceof TextNotAvailableError) return { status: "error", book, reason: "no-text" };
     console.error(`Could not open book ${bookId}:`, error);
@@ -60,14 +60,16 @@ async function Reader({ params, searchParams }: Pick<PageProps<"/read/[id]">, "p
   if (data.status === "not-found") notFound();
   if (data.status === "error") return <ReaderError bookId={bookId} book={data.book} reason={data.reason} />;
 
-  const { book, shelved, pages } = data;
+  const { book, saved, pages } = data;
   // Without an explicit page, resume where the user left off.
   const requestedPage = parsePositiveInt(firstParam((await searchParams).page));
-  const startPage = Math.min(requestedPage ?? Math.max(shelved?.lastPage ?? 1, 1), pages.length);
+  const startPage = Math.min(requestedPage ?? Math.max(saved?.lastPage ?? 1, 1), pages.length);
 
-  const back = shelved
-    ? { href: `/shelves/${shelved.shelf}`, label: `Back to “${getShelfInfo(shelved.shelf).label}”` }
-    : { href: "/", label: "Back to Discover" };
+  const back = saved?.shelf
+    ? { href: `/shelves/${saved.shelf}`, label: `Back to “${getShelfInfo(saved.shelf).fullLabel}”` }
+    : saved?.isFavorite
+      ? { href: "/shelves/favorites", label: "Back to Favorites" }
+      : { href: "/", label: "Back to Discover" };
 
   return (
     <div className={styles.reader}>
@@ -75,7 +77,13 @@ async function Reader({ params, searchParams }: Pick<PageProps<"/read/[id]">, "p
         <h1 className={styles.title}>{book.title}</h1>
         <p className={styles.author}>{book.author}</p>
         <div className={styles.shelf}>
-          <ShelfPicker bookId={book.id} bookTitle={book.title} shelf={shelved?.shelf ?? null} allowRemove={false} />
+          <ShelfPicker
+            bookId={book.id}
+            bookTitle={book.title}
+            shelf={saved?.shelf ?? null}
+            isFavorite={saved?.isFavorite ?? false}
+            allowRemove={false}
+          />
         </div>
       </header>
 
@@ -86,8 +94,8 @@ async function Reader({ params, searchParams }: Pick<PageProps<"/read/[id]">, "p
           pageCount={pages.length}
           initialFirstPage={startPage}
           initialPages={pages.slice(startPage - 1, startPage - 1 + INITIAL_PAGES)}
-          isShelved={shelved !== null}
-          isFinished={shelved?.shelf === "finished"}
+          isShelved={saved !== null}
+          isFinished={saved?.shelf === "finished"}
         />
       </article>
     </div>

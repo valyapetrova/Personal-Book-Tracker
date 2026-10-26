@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { getShelfInfo } from "@/lib/shelves";
-import type { BookcaseBook } from "./bookcase-scene";
+import { shelveBookAction } from "@/app/actions";
+import { getShelfInfo, type ShelfId } from "@/lib/shelves";
+import type { BookcaseBook, BookcaseHandle } from "./bookcase-scene";
 import styles from "./Bookcase.module.css";
 
 interface HoveredBook {
@@ -17,30 +18,64 @@ interface HoveredBook {
   flip: boolean;
 }
 
+/** Feedback after a drag & drop, with a way to undo it. */
+type Notice =
+  | { kind: "moved"; book: BookcaseBook; from: ShelfId }
+  | { kind: "error"; message: string };
+
+const NOTICE_DURATION_MS = 8000;
+
 /**
- * Interactive 3D bookcase showing every shelved book. three.js is loaded
- * only when this component mounts, so other pages don't pay for it.
+ * Interactive 3D bookcase showing every shelved book, with the DNF bin
+ * beside it. Books can be dragged between shelves and into the bin. three.js
+ * is loaded only when this component mounts, so other pages don't pay for it.
  */
 export function Bookcase({ books }: { books: BookcaseBook[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const handleRef = useRef<BookcaseHandle | null>(null);
+  /** The latest books from the server, used to build the scene and to undo failed moves. */
+  const booksRef = useRef(books);
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "ready" | "unsupported">("loading");
   const [hovered, setHovered] = useState<HoveredBook | null>(null);
   const [isTouch, setIsTouch] = useState(false);
+  const [notice, setNotice] = useState<Notice | null>(null);
+
+  // Keep the scene in step with the server: after a move, books glide to their new place.
+  useEffect(() => {
+    booksRef.current = books;
+    handleRef.current?.setBooks(books);
+  }, [books]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), NOTICE_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     let disposed = false;
-    let handle: { dispose(): void } | null = null;
+
+    async function moveBook(book: BookcaseBook, from: ShelfId) {
+      const result = await shelveBookAction(book.id, book.shelf);
+      if (result.ok) {
+        setNotice({ kind: "moved", book, from });
+      } else {
+        // Put the book back where the server says it is.
+        handleRef.current?.setBooks(booksRef.current);
+        setNotice({ kind: "error", message: result.error });
+      }
+    }
 
     (async () => {
       const [{ createBookcase }] = await Promise.all([import("./bookcase-scene"), document.fonts.ready]);
       if (disposed) return;
       try {
-        handle = createBookcase(
+        handleRef.current = createBookcase(
           container,
-          books,
+          booksRef.current,
           {
             onHover(book, clientX, clientY) {
               const rect = container.getBoundingClientRect();
@@ -49,6 +84,9 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
             },
             onOpen(book) {
               router.push(`/read/${book.id}`);
+            },
+            onMove(book, from) {
+              void moveBook(book, from);
             },
           },
           {
@@ -66,9 +104,16 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
 
     return () => {
       disposed = true;
-      handle?.dispose();
+      handleRef.current?.dispose();
+      handleRef.current = null;
     };
-  }, [books, router]);
+  }, [router]);
+
+  async function undo(book: BookcaseBook, from: ShelfId) {
+    setNotice(null);
+    const result = await shelveBookAction(book.id, from);
+    if (!result.ok) setNotice({ kind: "error", message: result.error });
+  }
 
   return (
     <div className={styles.wrapper}>
@@ -76,7 +121,7 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
         ref={containerRef}
         className={styles.stage}
         role="img"
-        aria-label={`Bookcase with ${books.length} ${books.length === 1 ? "book" : "books"}`}
+        aria-label={`Bookcase with ${books.filter((book) => book.shelf !== "dnf").length} books, and a DNF bin`}
       >
         {status === "loading" && <p className={styles.message}>Building your bookcase…</p>}
         {status === "unsupported" && (
@@ -93,10 +138,24 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
             <strong>{hovered.book.title}</strong>
             <span>{hovered.book.author}</span>
             <span className={styles.tooltipHint}>
-              {getShelfInfo(hovered.book.shelf).label} · {isTouch ? "Tap again to read" : "Click to read"}
+              {getShelfInfo(hovered.book.shelf).fullLabel} · {isTouch ? "Tap again to read" : "Click to read"}
             </span>
           </div>
         )}
+      </div>
+
+      <div className={styles.notice} role="status" aria-live="polite">
+        {notice?.kind === "moved" && (
+          <>
+            <span>
+              Moved “{notice.book.title}” to {getShelfInfo(notice.book.shelf).fullLabel}.
+            </span>
+            <button type="button" className="button button-small" onClick={() => undo(notice.book, notice.from)}>
+              Undo
+            </button>
+          </>
+        )}
+        {notice?.kind === "error" && <span className={styles.error}>{notice.message}</span>}
       </div>
 
       <p className={styles.hint}>
@@ -105,9 +164,9 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
             Your bookcase is empty. <Link href="/">Discover books</Link> and add them to a shelf.
           </>
         ) : isTouch ? (
-          "Tap a book to pull it out, tap again to open it."
+          "Tap a book to pull it out, tap again to open it. Drag a book sideways to move it or drop it in the DNF bin."
         ) : (
-          "Hover a book to pull it out, click to open it. Drag to look around."
+          "Hover a book to pull it out, click to open it. Drag it to another shelf or into the DNF bin."
         )}
       </p>
     </div>

@@ -1,16 +1,19 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-import { SHELVES, type ShelfId } from "@/lib/shelves";
+import { BOOKCASE_SHELVES, type ShelfId } from "@/lib/shelves";
 
 /**
  * A 3D bookcase rendered with three.js (no React in this file).
  *
- * Books stand on three shelves with their spines out. When the page opens
- * they drop into place; hovering a book pulls it out and turns it to show its
- * cover; clicking opens it. Ideas taken from the three.js examples:
- * webgl_interactive_cubes (raycast picking), misc_controls_orbit (camera
- * controls) and webgl_shadow_contact (soft shadow under the case).
+ * Books stand on three shelves with their spines out; a "DNF" wastebasket
+ * stands beside the case. When the page opens the books drop into place.
+ * Hovering a book pulls it out and turns it to show its cover, clicking
+ * opens it, and dragging moves it to another shelf or into the bin.
+ *
+ * Ideas taken from the three.js examples: webgl_interactive_cubes (raycast
+ * picking), misc_controls_orbit (camera controls) and webgl_shadow_contact
+ * (soft shadow under the case).
  *
  * Units are roughly decimetres: a book is about 1.1 tall and 0.8 deep.
  */
@@ -28,21 +31,26 @@ export interface BookcaseCallbacks {
   /** A book was hovered (or tapped once on touch screens), or null when none is. */
   onHover(book: BookcaseBook | null, clientX: number, clientY: number): void;
   onOpen(book: BookcaseBook): void;
+  /** A book was dragged onto another shelf or into the bin. The scene has already moved it. */
+  onMove(book: BookcaseBook, from: ShelfId): void;
 }
 
 export interface BookcaseOptions {
   reducedMotion: boolean;
-  /** CSS font-family used for text drawn onto spines and shelf labels. */
+  /** CSS font-family used for text drawn onto spines and labels. */
   fontFamily: string;
 }
 
 export interface BookcaseHandle {
+  /** Re-arranges the scene for an updated list of books; moved books glide to their new place. */
+  setBooks(books: BookcaseBook[]): void;
   dispose(): void;
 }
 
 // ---- Dimensions & colours ---------------------------------------------------
 
 const BOOK_DEPTH = 0.8;
+const BOOK_GAP = 0.012;
 const COMPARTMENT_HEIGHT = 1.5;
 const PLANK = 0.09;
 const SIDE = 0.14;
@@ -51,8 +59,20 @@ const SHELF_PADDING = 0.25; // space between the side panels and the first/last 
 const MIN_INNER_WIDTH = 4;
 const MAX_INNER_WIDTH = 14;
 
+const BIN_RADIUS_TOP = 0.62;
+const BIN_RADIUS_BOTTOM = 0.5;
+const BIN_HEIGHT = 0.95;
+const BIN_GAP = 0.7; // between the case and the bin
+const BIN_BOOK_SCALE = 0.82;
+
+/** Dragged books move on a plane this far in front of the case's centre. */
+const DRAG_Z = CASE_DEPTH / 2 + 0.55;
+/** Pointer travel (px) before a press on a book becomes a drag. */
+const DRAG_THRESHOLD = 6;
+
 const WOOD = "#6b4c36";
 const WOOD_DARK = "#5e4331";
+const BIN_METAL = "#7c6f66";
 const PAGES = "#f4ead8";
 const SPINE_COLOURS = ["#7a2e2a", "#9e3a33", "#52201c", "#5c4332", "#5f6f45", "#2f4858", "#8a5a3c", "#c9a089", "#3e5641", "#a8763e"];
 
@@ -63,8 +83,13 @@ const PULL_SPEED = 9;
 interface BookState {
   book: BookcaseBook;
   mesh: THREE.Mesh;
-  base: THREE.Vector3;
-  /** 0 = on the shelf, 1 = pulled out and turned to show the cover. */
+  height: number;
+  /** Where the book rests: on a shelf or in the bin. */
+  home: THREE.Vector3;
+  homeRotation: THREE.Euler;
+  /** Animated resting position; glides towards `home` when the book is moved. */
+  position: THREE.Vector3;
+  /** 0 = resting, 1 = pulled out (shelf) or lifted (bin). */
   pull: number;
   /** Seconds after start when its drop-in animation begins. */
   dropDelay: number;
@@ -72,7 +97,7 @@ interface BookState {
 
 export function createBookcase(
   container: HTMLElement,
-  books: BookcaseBook[],
+  initialBooks: BookcaseBook[],
   callbacks: BookcaseCallbacks,
   options: BookcaseOptions,
 ): BookcaseHandle {
@@ -81,121 +106,119 @@ export function createBookcase(
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
-  container.appendChild(renderer.domElement);
+  const canvas = renderer.domElement;
+  container.appendChild(canvas);
 
   const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
   // On touch screens, keep vertical swipes for scrolling the page.
-  renderer.domElement.style.touchAction = coarsePointer ? "pan-y" : "none";
-  renderer.domElement.style.display = "block";
+  canvas.style.touchAction = coarsePointer ? "pan-y" : "none";
+  canvas.style.display = "block";
 
   const scene = new THREE.Scene();
-  const caseGroup = new THREE.Group();
-  scene.add(caseGroup);
+  /** Everything that sways together: the case, the bin and the books. */
+  const world = new THREE.Group();
+  scene.add(world);
 
-  // ---- Layout: work out how wide the case must be ---------------------------
+  // ---- The bookcase ---------------------------------------------------------------
 
-  const byShelf = SHELVES.map((shelf) => books.filter((book) => book.shelf === shelf.id));
-  const thicknessOf = (book: BookcaseBook) => 0.17 + random(book.id, 1) * 0.15;
-  const rowWidths = byShelf.map((row) => row.reduce((sum, book) => sum + thicknessOf(book) + 0.012, 0));
-  const innerWidth = THREE.MathUtils.clamp(Math.max(...rowWidths) + SHELF_PADDING * 2, MIN_INNER_WIDTH, MAX_INNER_WIDTH);
-  const innerHeight = SHELVES.length * COMPARTMENT_HEIGHT + (SHELVES.length - 1) * PLANK;
+  const rowWidth = (books: BookcaseBook[]) => books.reduce((sum, book) => sum + thicknessOf(book) + BOOK_GAP, 0);
+  const initialRows = BOOKCASE_SHELVES.map((shelf) => initialBooks.filter((book) => book.shelf === shelf.id));
+  const innerWidth = THREE.MathUtils.clamp(
+    Math.max(...initialRows.map(rowWidth)) + SHELF_PADDING * 2,
+    MIN_INNER_WIDTH,
+    MAX_INNER_WIDTH,
+  );
+  const innerHeight = BOOKCASE_SHELVES.length * COMPARTMENT_HEIGHT + (BOOKCASE_SHELVES.length - 1) * PLANK;
   const outerWidth = innerWidth + SIDE * 2;
   const outerHeight = innerHeight + PLANK * 2;
-
-  // ---- The bookcase itself ----------------------------------------------------
+  const bottomY = -outerHeight / 2;
+  const caseFront = CASE_DEPTH / 2;
 
   const woodMaterial = new THREE.MeshStandardMaterial({ color: WOOD, roughness: 0.75 });
   const backMaterial = new THREE.MeshStandardMaterial({ color: WOOD_DARK, roughness: 0.9 });
 
-  const addPanel = (width: number, height: number, depth: number, x: number, y: number, z: number, material = woodMaterial) => {
+  const addBox = (width: number, height: number, depth: number, x: number, y: number, z: number, material: THREE.Material) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
     mesh.position.set(x, y, z);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    caseGroup.add(mesh);
+    world.add(mesh);
     return mesh;
   };
 
-  const bottomY = -outerHeight / 2;
-  addPanel(SIDE, outerHeight, CASE_DEPTH, -outerWidth / 2 + SIDE / 2, 0, 0); // left side
-  addPanel(SIDE, outerHeight, CASE_DEPTH, outerWidth / 2 - SIDE / 2, 0, 0); // right side
-  addPanel(innerWidth, PLANK, CASE_DEPTH, 0, outerHeight / 2 - PLANK / 2, 0); // top
-  addPanel(outerWidth, outerHeight, 0.05, 0, 0, -CASE_DEPTH / 2 + 0.025, backMaterial); // back
+  addBox(SIDE, outerHeight, CASE_DEPTH, -outerWidth / 2 + SIDE / 2, 0, 0, woodMaterial); // left side
+  addBox(SIDE, outerHeight, CASE_DEPTH, outerWidth / 2 - SIDE / 2, 0, 0, woodMaterial); // right side
+  addBox(innerWidth, PLANK, CASE_DEPTH, 0, outerHeight / 2 - PLANK / 2, 0, woodMaterial); // top
+  addBox(outerWidth, outerHeight, 0.05, 0, 0, -CASE_DEPTH / 2 + 0.025, backMaterial); // back
 
-  // Shelf planks, top to bottom. Each shelf's books stand on the plank below them.
-  const shelfFloors: number[] = [];
-  for (let index = 0; index < SHELVES.length; index++) {
+  // Shelf planks, top to bottom; each shelf's books stand on the plank below them.
+  const shelfFloors = BOOKCASE_SHELVES.map((_, index) => {
     const floorTop = outerHeight / 2 - PLANK - (index + 1) * COMPARTMENT_HEIGHT - index * PLANK;
-    addPanel(innerWidth, PLANK, CASE_DEPTH, 0, floorTop - PLANK / 2, 0);
-    shelfFloors.push(floorTop);
-  }
+    addBox(innerWidth, PLANK, CASE_DEPTH, 0, floorTop - PLANK / 2, 0, woodMaterial);
+    return floorTop;
+  });
 
-  // A brass label on the front edge of each shelf, e.g. "Reading · 3".
-  SHELVES.forEach((shelf, index) => {
-    const label = `${shelf.label} · ${byShelf[index].length}`;
-    const texture = textTexture(label, options.fontFamily);
+  // Brass labels on the front of each shelf, e.g. "Reading · 3".
+  const shelfLabels = BOOKCASE_SHELVES.map((_, index) => {
     const plate = new THREE.Mesh(
       new THREE.PlaneGeometry(1.5, 0.2),
-      new THREE.MeshStandardMaterial({ map: texture, roughness: 0.45, metalness: 0.35 }),
+      new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0.35 }),
     );
-    plate.position.set(0, shelfFloors[index] - PLANK / 2, CASE_DEPTH / 2 + 0.002);
-    caseGroup.add(plate);
+    plate.position.set(0, shelfFloors[index] - PLANK / 2, caseFront + 0.002);
+    world.add(plate);
+    return plate;
   });
 
-  // ---- Books -------------------------------------------------------------------
-
-  const textureLoader = new THREE.TextureLoader();
-  const states: BookState[] = [];
-  const caseFront = CASE_DEPTH / 2;
-
-  byShelf.forEach((row, shelfIndex) => {
-    const available = innerWidth - SHELF_PADDING * 2;
-    const squeeze = Math.min(1, available / Math.max(rowWidths[shelfIndex], 0.001));
-    let x = -innerWidth / 2 + SHELF_PADDING;
-
-    row.forEach((book, indexInRow) => {
-      const thickness = thicknessOf(book) * squeeze;
-      const height = 1.0 + random(book.id, 2) * 0.32;
-      const spineColour = SPINE_COLOURS[Math.floor(random(book.id, 3) * SPINE_COLOURS.length)];
-
-      const pageMaterial = new THREE.MeshStandardMaterial({ color: PAGES, roughness: 0.9 });
-      const coverMaterial = new THREE.MeshStandardMaterial({ color: spineColour, roughness: 0.6 });
-      if (book.coverSrc) {
-        textureLoader.load(book.coverSrc, (texture) => {
-          texture.colorSpace = THREE.SRGBColorSpace;
-          coverMaterial.map = texture;
-          coverMaterial.color.set("#ffffff");
-          coverMaterial.needsUpdate = true;
-        });
-      } else {
-        coverMaterial.map = coverTexture(book, spineColour, options.fontFamily);
-        coverMaterial.color.set("#ffffff");
-      }
-
-      // BoxGeometry face order: +x, -x, +y, -y, +z, -z.
-      // The spine faces the viewer (+z); the front cover is on +x.
-      const materials = [
-        coverMaterial,
-        new THREE.MeshStandardMaterial({ color: spineColour, roughness: 0.6 }),
-        pageMaterial,
-        pageMaterial,
-        new THREE.MeshStandardMaterial({ map: spineTexture(book, spineColour, options.fontFamily), roughness: 0.55 }),
-        pageMaterial,
-      ];
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(thickness, height, BOOK_DEPTH), materials);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-
-      const base = new THREE.Vector3(x + thickness / 2, shelfFloors[shelfIndex] + height / 2, caseFront - 0.06 - BOOK_DEPTH / 2);
-      mesh.position.copy(base);
-      // A slight, natural-looking lean for some books.
-      mesh.rotation.z = (random(book.id, 4) - 0.5) * 0.02;
-      caseGroup.add(mesh);
-
-      states.push({ book, mesh, base, pull: 0, dropDelay: shelfIndex * 0.25 + indexInRow * 0.06 });
-      x += thickness + 0.012;
-    });
+  // Glow shown on a shelf while a book is dragged over it.
+  const shelfGlows = BOOKCASE_SHELVES.map((_, index) => {
+    const glow = new THREE.Mesh(
+      new THREE.PlaneGeometry(innerWidth, COMPARTMENT_HEIGHT),
+      new THREE.MeshBasicMaterial({ color: "#fff1cf", transparent: true, opacity: 0, depthWrite: false }),
+    );
+    glow.position.set(0, shelfFloors[index] + COMPARTMENT_HEIGHT / 2, caseFront + 0.01);
+    world.add(glow);
+    return glow;
   });
+
+  // ---- The DNF bin: an open wastebasket beside the case -------------------------
+
+  const binX = outerWidth / 2 + BIN_GAP + BIN_RADIUS_TOP;
+  const binZ = 0.1;
+  const binMaterial = new THREE.MeshStandardMaterial({
+    color: BIN_METAL,
+    roughness: 0.45,
+    metalness: 0.55,
+    side: THREE.DoubleSide,
+    emissive: "#e0a060",
+    emissiveIntensity: 0,
+  });
+  const bin = new THREE.Group();
+  bin.position.set(binX, bottomY, binZ);
+  world.add(bin);
+
+  const binWall = new THREE.Mesh(
+    new THREE.CylinderGeometry(BIN_RADIUS_TOP, BIN_RADIUS_BOTTOM, BIN_HEIGHT, 40, 1, true),
+    binMaterial,
+  );
+  binWall.position.y = BIN_HEIGHT / 2;
+  binWall.castShadow = true;
+  binWall.receiveShadow = true;
+  const binFloor = new THREE.Mesh(new THREE.CircleGeometry(BIN_RADIUS_BOTTOM, 40), binMaterial);
+  binFloor.rotation.x = -Math.PI / 2;
+  binFloor.position.y = 0.01;
+  const binRim = new THREE.Mesh(new THREE.TorusGeometry(BIN_RADIUS_TOP, 0.03, 12, 48), binMaterial);
+  binRim.rotation.x = Math.PI / 2;
+  binRim.position.y = BIN_HEIGHT;
+  bin.add(binWall, binFloor, binRim);
+
+  const binLabel = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.85, 0.2),
+    new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0.35 }),
+  );
+  const labelRadius = (BIN_RADIUS_TOP + BIN_RADIUS_BOTTOM) / 2 + 0.01;
+  binLabel.position.set(0, BIN_HEIGHT / 2, labelRadius);
+  binLabel.rotation.x = -Math.atan((BIN_RADIUS_TOP - BIN_RADIUS_BOTTOM) / BIN_HEIGHT);
+  bin.add(binLabel);
 
   // ---- Lights, shadow catcher, camera, controls -------------------------------
 
@@ -209,18 +232,22 @@ export function createBookcase(
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.radius = 4;
-  const shadowExtent = Math.max(outerWidth, outerHeight);
+  const compositionWidth = outerWidth + BIN_GAP + BIN_RADIUS_TOP * 2;
+  const shadowExtent = Math.max(compositionWidth, outerHeight);
   Object.assign(sun.shadow.camera, { left: -shadowExtent, right: shadowExtent, top: shadowExtent, bottom: -shadowExtent });
   scene.add(sun);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(outerWidth * 3, 6), new THREE.ShadowMaterial({ opacity: 0.18 }));
+  // Centre the case and bin together.
+  world.position.x = -(BIN_GAP + BIN_RADIUS_TOP * 2) / 2;
+
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(compositionWidth * 3, 6), new THREE.ShadowMaterial({ opacity: 0.18 }));
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = bottomY;
   ground.receiveShadow = true;
   scene.add(ground);
 
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 200);
-  const controls = new OrbitControls(camera, renderer.domElement);
+  const controls = new OrbitControls(camera, canvas);
   controls.enableZoom = false; // never hijack page scrolling
   controls.enablePan = false;
   controls.enableRotate = !coarsePointer;
@@ -230,17 +257,17 @@ export function createBookcase(
   controls.minPolarAngle = Math.PI / 2 - 0.35;
   controls.maxPolarAngle = Math.PI / 2 + 0.1;
 
-  /** Places the camera so the whole case fits the current canvas size. */
+  /** Places the camera so the case and bin fit the current canvas size. */
   function fitCamera() {
     const { clientWidth: width, clientHeight: height } = container;
     if (width === 0 || height === 0) return;
     renderer.setSize(width, height, false);
-    renderer.domElement.style.width = "100%";
-    renderer.domElement.style.height = "100%";
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
     camera.aspect = width / height;
     const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
-    const fitHeight = (outerHeight / 2) / Math.tan(halfFov);
-    const fitWidth = (outerWidth / 2) / (Math.tan(halfFov) * camera.aspect);
+    const fitHeight = outerHeight / 2 / Math.tan(halfFov);
+    const fitWidth = compositionWidth / 2 / (Math.tan(halfFov) * camera.aspect);
     const distance = Math.max(fitHeight, fitWidth) * 1.12 + caseFront + PULL_DISTANCE;
     camera.position.set(0, 0.35, distance);
     camera.updateProjectionMatrix();
@@ -248,41 +275,225 @@ export function createBookcase(
     controls.update();
   }
 
-  // ---- Interaction ---------------------------------------------------------------
+  // ---- Books -------------------------------------------------------------------
+
+  const textureLoader = new THREE.TextureLoader();
+  const states = new Map<number, BookState>();
+  let books = initialBooks;
+  let elapsed = 0;
+  let firstLayout = true;
+
+  function createState(book: BookcaseBook): BookState {
+    const height = 1.0 + random(book.id, 2) * 0.32;
+    const spineColour = SPINE_COLOURS[Math.floor(random(book.id, 3) * SPINE_COLOURS.length)];
+
+    const pageMaterial = new THREE.MeshStandardMaterial({ color: PAGES, roughness: 0.9 });
+    const coverMaterial = new THREE.MeshStandardMaterial({ color: spineColour, roughness: 0.6 });
+    if (book.coverSrc) {
+      textureLoader.load(book.coverSrc, (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        coverMaterial.map = texture;
+        coverMaterial.color.set("#ffffff");
+        coverMaterial.needsUpdate = true;
+      });
+    } else {
+      coverMaterial.map = coverTexture(book, spineColour, options.fontFamily);
+      coverMaterial.color.set("#ffffff");
+    }
+
+    // BoxGeometry face order: +x, -x, +y, -y, +z, -z.
+    // The spine faces the viewer (+z); the front cover is on +x.
+    const materials = [
+      coverMaterial,
+      new THREE.MeshStandardMaterial({ color: spineColour, roughness: 0.6 }),
+      pageMaterial,
+      pageMaterial,
+      new THREE.MeshStandardMaterial({ map: spineTexture(book, spineColour, options.fontFamily), roughness: 0.55 }),
+      pageMaterial,
+    ];
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(thicknessOf(book), height, BOOK_DEPTH), materials);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    world.add(mesh);
+
+    return {
+      book,
+      mesh,
+      height,
+      home: new THREE.Vector3(),
+      homeRotation: new THREE.Euler(),
+      position: new THREE.Vector3(),
+      pull: 0,
+      dropDelay: 0,
+    };
+  }
+
+  /** Works out where every book rests, creating and removing book meshes as needed. */
+  function layout() {
+    const seen = new Set<number>();
+
+    BOOKCASE_SHELVES.forEach((shelf, shelfIndex) => {
+      const row = books.filter((book) => book.shelf === shelf.id);
+      const squeeze = Math.min(1, (innerWidth - SHELF_PADDING * 2) / Math.max(rowWidth(row), 0.001));
+      let x = -innerWidth / 2 + SHELF_PADDING;
+
+      row.forEach((book, indexInRow) => {
+        const state = place(book, seen, shelfIndex * 0.25 + indexInRow * 0.06);
+        const thickness = thicknessOf(book) * squeeze;
+        state.mesh.scale.set(squeeze, 1, 1);
+        state.home.set(x + thickness / 2, shelfFloors[shelfIndex] + state.height / 2, caseFront - 0.06 - BOOK_DEPTH / 2);
+        // A slight, natural-looking lean for some books.
+        state.homeRotation.set(0, 0, (random(book.id, 4) - 0.5) * 0.02);
+        x += thickness + BOOK_GAP;
+      });
+    });
+
+    // Books in the bin lean every which way, their tops poking out over the rim.
+    // They are shown a little smaller so they fit inside the basket.
+    books
+      .filter((book) => book.shelf === "dnf")
+      .forEach((book, index) => {
+        const state = place(book, seen, BOOKCASE_SHELVES.length * 0.25 + index * 0.08);
+        const angle = index * 2.39996; // golden angle, so books spread around the bin
+        const radius = 0.04 + (index % 3) * 0.08;
+        state.mesh.scale.setScalar(BIN_BOOK_SCALE);
+        state.home.set(
+          binX + Math.cos(angle) * radius,
+          bottomY + 0.06 + (state.height * BIN_BOOK_SCALE) / 2,
+          binZ + Math.sin(angle) * radius * 0.6,
+        );
+        state.homeRotation.set((random(book.id, 5) - 0.5) * 0.3, random(book.id, 6) * Math.PI, (random(book.id, 7) - 0.5) * 0.45);
+      });
+
+    for (const [id, state] of states) {
+      if (seen.has(id)) continue;
+      world.remove(state.mesh);
+      disposeObject(state.mesh);
+      states.delete(id);
+    }
+
+    BOOKCASE_SHELVES.forEach((shelf, index) => {
+      setPlateText(shelfLabels[index], `${shelf.label} · ${books.filter((book) => book.shelf === shelf.id).length}`);
+    });
+    setPlateText(binLabel, `DNF · ${books.filter((book) => book.shelf === "dnf").length}`);
+    firstLayout = false;
+  }
+
+  /** Returns the state for a book, creating it (and its drop-in animation) if it is new. */
+  function place(book: BookcaseBook, seen: Set<number>, initialDelay: number): BookState {
+    let state = states.get(book.id);
+    if (!state) {
+      state = createState(book);
+      state.dropDelay = firstLayout ? initialDelay : elapsed;
+      states.set(book.id, state);
+    }
+    state.book = book;
+    seen.add(book.id);
+    return state;
+  }
+
+  function setPlateText(plate: THREE.Mesh, text: string) {
+    const material = plate.material as THREE.MeshStandardMaterial;
+    material.map?.dispose();
+    material.map = plateTexture(text, options.fontFamily);
+    material.needsUpdate = true;
+  }
+
+  layout();
+  for (const state of states.values()) state.position.copy(state.home);
+
+  // ---- Interaction: hover, click, drag & drop ------------------------------------
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
-  const meshes = states.map((state) => state.mesh);
-  let hovered: BookState | null = null;
-  let pressedAt: { x: number; y: number } | null = null;
+  const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -DRAG_Z);
+  const inverseWorld = new THREE.Matrix4();
+  const localRay = new THREE.Ray();
+  const dragPoint = new THREE.Vector3();
 
-  function pick(event: PointerEvent): BookState | null {
-    const rect = renderer.domElement.getBoundingClientRect();
+  let hovered: BookState | null = null;
+  let press: { x: number; y: number; state: BookState | null } | null = null;
+  let dragging: BookState | null = null;
+  let dropTarget: ShelfId | null = null;
+
+  function setPointerFrom(event: PointerEvent) {
+    const rect = canvas.getBoundingClientRect();
     pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
+  }
+
+  function pick(event: PointerEvent): BookState | null {
+    setPointerFrom(event);
+    const meshes = [...states.values()].map((state) => state.mesh);
     const hit = raycaster.intersectObjects(meshes, false)[0];
-    return hit ? (states.find((state) => state.mesh === hit.object) ?? null) : null;
+    return hit ? ([...states.values()].find((state) => state.mesh === hit.object) ?? null) : null;
+  }
+
+  /** Where the pointer meets the drag plane, in the world group's coordinates. */
+  function dragPointFrom(event: PointerEvent): THREE.Vector3 | null {
+    setPointerFrom(event);
+    inverseWorld.copy(world.matrixWorld).invert();
+    localRay.copy(raycaster.ray).applyMatrix4(inverseWorld);
+    return localRay.intersectPlane(dragPlane, dragPoint);
+  }
+
+  /** Which shelf (or the bin) a point on the drag plane is over. */
+  function targetAt(point: THREE.Vector3): ShelfId | null {
+    if (Math.abs(point.x - binX) < BIN_RADIUS_TOP + 0.35 && point.y < bottomY + BIN_HEIGHT + 0.9) return "dnf";
+    if (Math.abs(point.x) > outerWidth / 2 + 0.2) return null;
+    const index = shelfFloors.findIndex((floor) => point.y >= floor - PLANK && point.y <= floor + COMPARTMENT_HEIGHT);
+    return index === -1 ? null : BOOKCASE_SHELVES[index].id;
   }
 
   function setHovered(state: BookState | null, event: PointerEvent) {
     hovered = state;
-    renderer.domElement.style.cursor = state ? "pointer" : "";
+    canvas.style.cursor = state ? "grab" : "";
     callbacks.onHover(state?.book ?? null, event.clientX, event.clientY);
   }
 
-  function onPointerMove(event: PointerEvent) {
-    if (event.pointerType === "touch") return; // touch uses tap-to-select instead
-    setHovered(pick(event), event);
+  function onPointerDown(event: PointerEvent) {
+    const state = pick(event);
+    press = { x: event.clientX, y: event.clientY, state };
+    // Pressing a book starts a possible drag, so the camera must not rotate.
+    if (state) {
+      controls.enabled = false;
+      canvas.setPointerCapture(event.pointerId);
+    }
   }
 
-  function onPointerDown(event: PointerEvent) {
-    pressedAt = { x: event.clientX, y: event.clientY };
+  function onPointerMove(event: PointerEvent) {
+    if (press?.state && !dragging && Math.hypot(event.clientX - press.x, event.clientY - press.y) > DRAG_THRESHOLD) {
+      dragging = press.state;
+      dragging.pull = 0;
+      hovered = null;
+      callbacks.onHover(null, event.clientX, event.clientY);
+      canvas.style.cursor = "grabbing";
+    }
+    if (dragging) {
+      const point = dragPointFrom(event);
+      if (point) {
+        dragging.mesh.position.copy(point);
+        dropTarget = targetAt(point);
+      }
+      return;
+    }
+    if (event.pointerType !== "touch") setHovered(pick(event), event);
   }
 
   function onPointerUp(event: PointerEvent) {
-    // Ignore drags (rotating the view) – only treat short presses as clicks.
-    if (!pressedAt || Math.hypot(event.clientX - pressedAt.x, event.clientY - pressedAt.y) > 6) return;
-    pressedAt = null;
+    controls.enabled = true;
+    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+
+    if (dragging) {
+      finishDrag();
+      press = null;
+      return;
+    }
+
+    // A short press without movement is a click (or a tap).
+    const pressed = press;
+    press = null;
+    if (!pressed || Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > DRAG_THRESHOLD) return;
     const state = pick(event);
     if (!state) {
       setHovered(null, event);
@@ -293,44 +504,107 @@ export function createBookcase(
     }
   }
 
-  function onPointerLeave(event: PointerEvent) {
-    if (event.pointerType !== "touch") setHovered(null, event);
+  function onPointerCancel() {
+    controls.enabled = true;
+    press = null;
+    if (dragging) {
+      dropTarget = null;
+      finishDrag();
+    }
   }
 
-  const canvas = renderer.domElement;
+  function onPointerLeave(event: PointerEvent) {
+    if (event.pointerType !== "touch" && !dragging) setHovered(null, event);
+  }
+
+  /** Drops the dragged book: on a new shelf (or the bin) it moves, otherwise it flies back. */
+  function finishDrag() {
+    const state = dragging!;
+    dragging = null;
+    canvas.style.cursor = "";
+    // Glide from where it was let go.
+    state.position.copy(state.mesh.position);
+
+    const target = dropTarget;
+    dropTarget = null;
+    if (!target || target === state.book.shelf) return;
+
+    const from = state.book.shelf;
+    const moved = { ...state.book, shelf: target };
+    // Newest first, like the server's ordering, so the book lands at the left of its shelf.
+    books = [moved, ...books.filter((book) => book.id !== moved.id)];
+    layout();
+    callbacks.onMove(moved, from);
+  }
+
+  canvas.addEventListener("pointerdown", onPointerDown, { capture: true }); // before OrbitControls sees it
   canvas.addEventListener("pointermove", onPointerMove);
-  canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", onPointerCancel);
   canvas.addEventListener("pointerleave", onPointerLeave);
 
   // ---- Animation loop ------------------------------------------------------------
 
   let last = 0;
-  let elapsed = 0;
 
   function animate(time: number) {
     const delta = last ? Math.min((time - last) / 1000, 0.1) : 0;
     last = time;
     elapsed += delta;
+    const ease = (speed: number) => (options.reducedMotion ? 1 : 1 - Math.exp(-delta * speed));
 
-    for (const state of states) {
-      // Drop-in: each book falls onto its shelf with a small bounce.
+    for (const state of states.values()) {
+      const { mesh } = state;
+      const inBin = state.book.shelf === "dnf";
+
+      if (state === dragging) {
+        // Follows the pointer (position set in onPointerMove), held upright and tilted a little.
+        mesh.rotation.set(0.12, 0, -0.12);
+        mesh.visible = true;
+        continue;
+      }
+
+      // Glide towards its resting place (after a drop or a re-arrangement).
+      state.position.lerp(state.home, ease(7));
+
+      // Drop-in: each book falls into place with a small bounce.
       const dropProgress = options.reducedMotion ? 1 : THREE.MathUtils.clamp((elapsed - state.dropDelay) / 0.7, 0, 1);
       const dropOffset = (1 - easeOutBack(dropProgress)) * 2.2;
+      mesh.visible = dropProgress > 0;
 
-      // Pull-out: slide out first, then turn to show the cover.
-      const target = state === hovered ? 1 : 0;
-      state.pull += (target - state.pull) * (1 - Math.exp(-delta * (options.reducedMotion ? 30 : PULL_SPEED)));
-      const slide = easeOutCubic(Math.min(state.pull / 0.55, 1));
-      const turn = easeInOutCubic(THREE.MathUtils.clamp((state.pull - 0.35) / 0.65, 0, 1));
+      const target = state === hovered && !dragging ? 1 : 0;
+      state.pull += (target - state.pull) * ease(PULL_SPEED);
 
-      state.mesh.position.set(state.base.x, state.base.y + dropOffset + slide * 0.06, state.base.z + slide * PULL_DISTANCE);
-      state.mesh.rotation.y = -turn * (Math.PI / 2) * 0.92;
-      state.mesh.visible = dropProgress > 0;
+      if (inBin) {
+        // Books in the bin lift up and straighten when hovered.
+        const lift = easeOutCubic(state.pull);
+        mesh.position.set(state.position.x, state.position.y + dropOffset + lift * 0.45, state.position.z + lift * 0.3);
+        mesh.rotation.set(
+          state.homeRotation.x * (1 - lift),
+          state.homeRotation.y * (1 - lift),
+          state.homeRotation.z * (1 - lift),
+        );
+      } else {
+        // On a shelf: slide out first, then turn to show the cover.
+        const slide = easeOutCubic(Math.min(state.pull / 0.55, 1));
+        const turn = easeInOutCubic(THREE.MathUtils.clamp((state.pull - 0.35) / 0.65, 0, 1));
+        mesh.position.set(state.position.x, state.position.y + dropOffset + slide * 0.06, state.position.z + slide * PULL_DISTANCE);
+        mesh.rotation.set(state.homeRotation.x, -turn * (Math.PI / 2) * 0.92, state.homeRotation.z);
+      }
     }
 
-    // A gentle sway so the case feels alive (skipped for reduced motion).
-    caseGroup.rotation.y = options.reducedMotion ? 0 : Math.sin(elapsed * 0.35) * 0.035;
+    // Drop-target feedback: shelves glow, the bin glows and grows a little.
+    BOOKCASE_SHELVES.forEach((shelf, index) => {
+      const material = shelfGlows[index].material as THREE.MeshBasicMaterial;
+      material.opacity += ((dropTarget === shelf.id ? 0.22 : 0) - material.opacity) * ease(12);
+    });
+    const binActive = dropTarget === "dnf" ? 1 : dragging ? 0.25 : 0;
+    binMaterial.emissiveIntensity += (binActive * 0.55 - binMaterial.emissiveIntensity) * ease(10);
+    bin.scale.setScalar(bin.scale.x + ((dropTarget === "dnf" ? 1.08 : 1) - bin.scale.x) * ease(12));
+
+    // A gentle sway so the case feels alive (paused while dragging and for reduced motion).
+    const sway = options.reducedMotion || dragging ? 0 : Math.sin(elapsed * 0.35) * 0.035;
+    world.rotation.y += (sway - world.rotation.y) * ease(4);
 
     controls.update();
     renderer.render(scene, camera);
@@ -348,16 +622,21 @@ export function createBookcase(
   visibilityObserver.observe(container);
 
   return {
+    setBooks(next) {
+      books = next;
+      layout();
+    },
     dispose() {
       renderer.setAnimationLoop(null);
       visibilityObserver.disconnect();
       resizeObserver.disconnect();
+      canvas.removeEventListener("pointerdown", onPointerDown, { capture: true });
       canvas.removeEventListener("pointermove", onPointerMove);
-      canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("pointercancel", onPointerCancel);
       canvas.removeEventListener("pointerleave", onPointerLeave);
       controls.dispose();
-      disposeScene(scene);
+      disposeObject(scene);
       renderer.dispose();
       canvas.remove();
     },
@@ -415,7 +694,7 @@ function coverTexture(book: BookcaseBook, colour: string, fontFamily: string): T
 }
 
 /** Text on a brass-coloured plate. */
-function textTexture(text: string, fontFamily: string): THREE.CanvasTexture {
+function plateTexture(text: string, fontFamily: string): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = 768;
   canvas.height = 102;
@@ -476,6 +755,11 @@ function wrapText(
 
 // ---- Helpers -----------------------------------------------------------------------
 
+/** A book's thickness; fixed per book so it always looks the same. */
+function thicknessOf(book: BookcaseBook): number {
+  return 0.17 + random(book.id, 1) * 0.15;
+}
+
 /** Deterministic pseudo-random number in [0, 1) for a book, so its look never changes. */
 function random(id: number, salt: number): number {
   const value = Math.sin(id * 12.9898 + salt * 78.233) * 43758.5453;
@@ -500,8 +784,9 @@ function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-function disposeScene(scene: THREE.Scene) {
-  scene.traverse((object) => {
+/** Frees the GPU memory used by an object's meshes, materials and textures. */
+function disposeObject(root: THREE.Object3D) {
+  root.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
     object.geometry.dispose();
     const materials: THREE.Material[] = Array.isArray(object.material) ? object.material : [object.material];
