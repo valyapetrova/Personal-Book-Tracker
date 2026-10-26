@@ -22,9 +22,9 @@ export function BookCard({ book, summary, details, actions }: BookCardProps) {
       <div className={styles.info}>
         <h3 className={styles.title}>{book.title}</h3>
         <p className={styles.author}>{book.author}</p>
-        {summary && <div className={styles.summary}>{summary}</div>}
         {details}
       </div>
+      {summary && <div className={styles.summary}>{summary}</div>}
       <div className={styles.actions}>{actions}</div>
     </article>
   );

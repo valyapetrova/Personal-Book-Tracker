@@ -7,16 +7,19 @@ the app. There is no login: it is a personal app with one local database.
 ## Features
 
 - **Discover**: search by title or author. With no search, the most popular books are shown.
-  Each book shows its cover, title, author and a short description.
+  Each book shows its cover, title, author and a short description. Results come 20 at a time,
+  4 per row on wide screens; **Find more books** adds the next 20 below.
 - **Three shelves**: *Want to read*, *Reading* and *Finished*. Add a book to a shelf, move it
   between shelves or remove it, from the search results, the shelf pages or the reader.
 - **My shelves**: one tab per shelf, with a live book count.
-- **In-app reader**: books are downloaded once from Project Gutenberg and split into pages.
-  Prose is re-flowed for any screen width, and chapters start on a new page. You can turn pages
-  with the buttons or the ← / → keys, or jump to a page number.
-- **Reading progress**: for shelved books, the reader remembers your page, the shelf card shows a
-  progress bar, and *Continue reading* takes you back to where you were. On the last page you can
-  mark the book as finished in one click.
+- **In-app reader**: books are downloaded once from Project Gutenberg and shown as one continuous
+  text. Keep scrolling and the next pages load automatically. Prose is re-flowed for any screen
+  width, and page numbers are marked in the margin. A sticky bar above the text shows your page
+  and progress, lets you jump to any page, and links back to your shelf. When you resume
+  mid-book, *Show earlier pages* loads what comes before.
+- **Reading progress**: for shelved books, the reader saves the page you are on as you scroll, the
+  shelf card shows a progress bar, and *Continue reading* takes you back to where you were. At the
+  end of the book you can mark it as finished in one click.
 - **Responsive and accessible**: layouts adapt from phones to desktops, support light and dark
   mode, and use semantic HTML, keyboard focus styles and screen-reader labels.
 

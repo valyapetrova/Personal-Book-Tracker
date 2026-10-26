@@ -8,23 +8,29 @@ import { BookCard, SummarySkeleton } from "./BookCard";
 import { BookGrid } from "./BookGrid";
 import { BookSummary } from "./BookSummary";
 import { EmptyState } from "./EmptyState";
-import { Pagination } from "./Pagination";
+import { LoadMoreButton } from "./LoadMoreButton";
 import { RetryButton } from "./RetryButton";
 import { ShelfPicker } from "./ShelfPicker";
 import styles from "./SearchResults.module.css";
 
+/** Books shown at first, and added by each "Find more books" click. */
+export const BOOKS_PER_BATCH = 20;
+/** Upper bound on how many results one page will render. */
+export const MAX_BOOKS = 400;
+
 interface SearchResultsProps {
   /** Search text; empty shows the most popular books. */
   query: string;
-  page: number;
+  /** How many results to show (a multiple of BOOKS_PER_BATCH). */
+  count: number;
 }
 
 /**
  * Search results from Project Gutenberg, annotated with the shelf each book
  * is on. Titles and covers appear at once; descriptions stream in per card.
  */
-export async function SearchResults({ query, page }: SearchResultsProps) {
-  const results = await searchBooks(query, page).catch((error: unknown) => {
+export async function SearchResults({ query, count }: SearchResultsProps) {
+  const results = await searchBooks(query, count).catch((error: unknown) => {
     console.error("Book search failed:", error);
     return null;
   });
@@ -40,7 +46,7 @@ export async function SearchResults({ query, page }: SearchResultsProps) {
   if (results.books.length === 0) {
     return (
       <EmptyState
-        title={query ? `No books found for “${query}”` : "No more books to show"}
+        title={`No books found for “${query}”`}
         action={
           <Link href="/" className="button">
             Back to popular books
@@ -62,7 +68,7 @@ export async function SearchResults({ query, page }: SearchResultsProps) {
         {query ? `Results for “${query}”` : "Popular on Project Gutenberg"}
       </h2>
 
-      <BookGrid>
+      <BookGrid columns={4}>
         {results.books.map((book) => (
           <li key={book.id}>
             <BookCard
@@ -84,22 +90,15 @@ export async function SearchResults({ query, page }: SearchResultsProps) {
         ))}
       </BookGrid>
 
-      {(page > 1 || results.hasNextPage) && (
-        <Pagination
-          page={page}
-          hasNextPage={results.hasNextPage}
-          hrefFor={(target) => searchHref(query, target)}
-          label="Search result pages"
-        />
-      )}
+      <div className={styles.more}>
+        {results.hasMore && count < MAX_BOOKS ? (
+          <LoadMoreButton count={count + BOOKS_PER_BATCH} />
+        ) : (
+          <p className={styles.end}>
+            {results.books.length === 1 ? "That’s the only match." : `That’s all ${results.books.length} books.`}
+          </p>
+        )}
+      </div>
     </section>
   );
-}
-
-function searchHref(query: string, page: number): string {
-  const params = new URLSearchParams();
-  if (query) params.set("q", query);
-  if (page > 1) params.set("page", String(page));
-  const search = params.toString();
-  return search ? `/?${search}` : "/";
 }

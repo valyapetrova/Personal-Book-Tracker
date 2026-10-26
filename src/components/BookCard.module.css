@@ -1,23 +1,22 @@
+/*
+ * Small cover beside the title, description across the full width below,
+ * controls pinned to the bottom so cards in a row line up.
+ */
 .card {
   display: grid;
-  grid-template-columns: 6rem minmax(0, 1fr);
-  grid-template-rows: 1fr auto;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
   grid-template-areas:
     "cover info"
+    "summary summary"
     "actions actions";
-  gap: var(--space-4);
+  gap: var(--space-3) var(--space-4);
   height: 100%;
   padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
-}
-
-@media (min-width: 640px) {
-  .card {
-    grid-template-columns: 7.5rem minmax(0, 1fr);
-  }
 }
 
 .cover {
@@ -49,12 +48,13 @@
 }
 
 .summary {
+  grid-area: summary;
+  align-self: start;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
   line-clamp: 4;
   overflow: hidden;
-  margin-top: var(--space-2);
   color: var(--color-text-muted);
   font-size: 0.875rem;
   line-height: 1.55;

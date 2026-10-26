@@ -25,11 +25,35 @@ const MAX_CONCURRENT_REQUESTS = 4;
 
 export interface SearchResults {
   books: BookListing[];
-  hasNextPage: boolean;
+  /** True if the search has more results than were returned. */
+  hasMore: boolean;
 }
 
-/** Searches titles and authors. An empty query lists the most downloaded books. */
-export async function searchBooks(query: string, page: number): Promise<SearchResults> {
+/**
+ * Returns the first `limit` results for a search of titles and authors. An
+ * empty query lists the most downloaded books. Fetches as many feed pages as
+ * needed; each feed page is cached separately, so asking for more results
+ * later only downloads the new pages.
+ */
+export async function searchBooks(query: string, limit: number): Promise<SearchResults> {
+  const books = new Map<number, BookListing>(); // keyed by id, in case pages overlap
+  let feedPage = 1;
+  let feedHasMore = true;
+
+  // Collect one extra result so we know whether there are more to show.
+  while (books.size <= limit && feedHasMore) {
+    const page = await fetchSearchPage(query, feedPage++);
+    for (const book of page.books) books.set(book.id, book);
+    feedHasMore = page.hasNextPage && page.books.length > 0;
+  }
+
+  return {
+    books: [...books.values()].slice(0, limit),
+    hasMore: books.size > limit || feedHasMore,
+  };
+}
+
+async function fetchSearchPage(query: string, page: number) {
   "use cache";
   cacheLife("hours");
 

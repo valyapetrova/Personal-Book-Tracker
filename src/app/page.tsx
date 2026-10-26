@@ -2,7 +2,7 @@ import { Suspense } from "react";
 
 import { BookGridSkeleton } from "@/components/BookGrid";
 import { SearchBar } from "@/components/SearchBar";
-import { SearchResults } from "@/components/SearchResults";
+import { BOOKS_PER_BATCH, MAX_BOOKS, SearchResults } from "@/components/SearchResults";
 import { firstParam, parsePositiveInt } from "@/lib/validation";
 import styles from "./page.module.css";
 
@@ -11,9 +11,12 @@ const MAX_QUERY_LENGTH = 200;
 type SearchParams = Awaited<PageProps<"/">["searchParams"]>;
 
 function readSearch(params: SearchParams) {
+  // How many results to show: a whole number of batches, within limits.
+  const requested = parsePositiveInt(firstParam(params.count)) ?? BOOKS_PER_BATCH;
+  const count = Math.min(Math.ceil(requested / BOOKS_PER_BATCH) * BOOKS_PER_BATCH, MAX_BOOKS);
   return {
     query: (firstParam(params.q) ?? "").trim().slice(0, MAX_QUERY_LENGTH),
-    page: parsePositiveInt(firstParam(params.page)) ?? 1,
+    count,
   };
 }
 
@@ -36,12 +39,13 @@ export default function DiscoverPage({ searchParams }: PageProps<"/">) {
         <SearchBar />
       </section>
 
-      <Suspense fallback={<BookGridSkeleton />}>
-        {search.then(({ query, page }) => (
+      <Suspense fallback={<BookGridSkeleton columns={4} count={BOOKS_PER_BATCH} />}>
+        {search.then(({ query, count }) => (
           // A fresh key for every search shows the skeleton straight away
-          // instead of leaving the previous results on screen.
-          <Suspense key={`${query}:${page}`} fallback={<BookGridSkeleton />}>
-            <SearchResults query={query} page={page} />
+          // instead of leaving the previous results on screen. Loading more
+          // results for the same search keeps the current ones visible.
+          <Suspense key={query} fallback={<BookGridSkeleton columns={4} count={BOOKS_PER_BATCH} />}>
+            <SearchResults query={query} count={count} />
           </Suspense>
         ))}
       </Suspense>

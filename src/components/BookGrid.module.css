@@ -5,11 +5,22 @@
   list-style: none;
 }
 
+/* Narrower cards that fit up to four per row on wide screens. */
+.fourColumns {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+}
+
+@media (min-width: 1100px) {
+  .fourColumns {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 /* ---- Loading skeleton --------------------------------------------------- */
 
 .skeletonCard {
   display: grid;
-  grid-template-columns: 6rem 1fr;
+  grid-template-columns: 5.5rem 1fr;
   gap: var(--space-4);
   height: 13rem;
   padding: var(--space-4);
