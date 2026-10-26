@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { EmptyState } from "@/components/EmptyState";
+import { AutoStartReading } from "@/components/reader/AutoStartReading";
 import { ContinuousReader } from "@/components/reader/ContinuousReader";
 import { RetryButton } from "@/components/RetryButton";
 import { ShelfPicker } from "@/components/ShelfPicker";
@@ -89,6 +90,8 @@ async function Reader({ params, searchParams }: Pick<PageProps<"/read/[id]">, "p
         </div>
       </header>
 
+      {/* Opening a book that is on no shelf puts it on "Reading". */}
+      <AutoStartReading bookId={book.id} shelf={saved?.shelf ?? null} />
       <article aria-label={book.title}>
         <ContinuousReader
           bookId={book.id}

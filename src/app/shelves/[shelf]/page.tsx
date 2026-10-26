@@ -72,7 +72,11 @@ async function ShelfBooks({ shelf }: { shelf: string }) {
                     review={book.review}
                     canRate={book.shelf === "finished"}
                   />
-                  <ReadingProgress lastPage={book.lastPage} pageCount={book.pageCount} />
+                  <ReadingProgress
+                    lastPage={book.lastPage}
+                    pageCount={book.pageCount}
+                    finished={book.shelf === "finished"}
+                  />
                 </>
               }
               actions={
@@ -84,8 +88,12 @@ async function ShelfBooks({ shelf }: { shelf: string }) {
                   rating={book.rating}
                   review={book.review}
                 >
-                  <Link href={`/read/${book.id}`} className="button button-small button-primary">
-                    {book.lastPage > 0 ? "Continue reading" : "Start reading"}
+                  {/* A finished book starts again from the beginning. */}
+                  <Link
+                    href={book.shelf === "finished" ? `/read/${book.id}?page=1` : `/read/${book.id}`}
+                    className="button button-small button-primary"
+                  >
+                    {book.shelf === "finished" ? "Read again" : book.lastPage > 0 ? "Continue reading" : "Start reading"}
                   </Link>
                 </ShelfPicker>
               }

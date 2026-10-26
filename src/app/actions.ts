@@ -34,6 +34,27 @@ export async function shelveBookAction(bookId: number, shelf: ShelfId): Promise<
   return { ok: true };
 }
 
+/**
+ * Called when a book is opened in the reader: a book that is not on any shelf
+ * yet goes onto "Reading". Books already on a shelf keep it.
+ */
+export async function startReadingAction(bookId: number): Promise<ActionResult> {
+  try {
+    const id = parsePositiveInt(bookId);
+    if (id === null) throw new ValidationError("Invalid book id.");
+    const saved = library.getLibraryBook(id);
+    if (saved?.shelf) return { ok: true };
+
+    const book = saved ?? (await getBookDetails(id));
+    if (!book) throw new ValidationError("This book does not exist on Project Gutenberg.");
+    if (!library.startReading(book)) return { ok: true };
+  } catch (error) {
+    return failure(error, "Could not add the book to your Reading shelf.");
+  }
+  refresh();
+  return { ok: true };
+}
+
 /** Saves a 1-5 star rating and an optional short review (null rating clears both). */
 export async function saveReviewAction(bookId: number, rating: number | null, review: string): Promise<ActionResult> {
   try {

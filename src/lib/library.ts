@@ -124,6 +124,24 @@ export function shelveBook(book: Book, shelf: ShelfId): void {
     .run(bookParams(book, { shelf }));
 }
 
+/**
+ * Puts a book on "Reading" if it is not on any shelf yet, adding it to the
+ * library if needed. Books already on a shelf are left alone. One statement,
+ * so it cannot overwrite a shelf chosen at the same moment. Returns true if
+ * the book was moved.
+ */
+export function startReading(book: Book): boolean {
+  const result = getDb()
+    .prepare(
+      `INSERT INTO books (id, title, author, summary, cover_url, text_url, shelf)
+       VALUES (:id, :title, :author, :summary, :coverUrl, :textUrl, 'reading')
+       ON CONFLICT (id) DO UPDATE SET shelf = 'reading', updated_at = ${SQL_NOW}
+       WHERE books.shelf IS NULL`,
+    )
+    .run(bookParams(book));
+  return result.changes > 0;
+}
+
 /** Moves a library book to a shelf. Returns false if the book is not in the library. */
 export function moveBook(id: number, shelf: ShelfId): boolean {
   const result = getDb()

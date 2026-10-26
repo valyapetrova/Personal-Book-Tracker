@@ -39,6 +39,8 @@ the app. There is no login: it is a personal app with one local database.
   width, and page numbers are marked in the margin. A sticky bar above the text shows your page
   and progress, lets you jump to any page, and links back to your shelf. When you resume
   mid-book, *Show earlier pages* loads what comes before.
+- **Starting a book**: opening a book that is on no shelf puts it on *Reading* automatically.
+  Books already on a shelf keep it, so *Read again* on a finished book does not move it back.
 - **Reading progress**: for shelved books, the reader saves the page you are on as you scroll, the
   shelf card shows a progress bar, and *Continue reading* takes you back to where you were. At the
   end of the book you can mark it as finished in one click.

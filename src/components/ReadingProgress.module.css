@@ -19,6 +19,11 @@
   background: var(--color-accent);
 }
 
+/* A completed book's bar takes the Finished shelf's colour. */
+.complete .fill {
+  background: var(--shelf-finished);
+}
+
 .label {
   color: var(--color-text-muted);
   font-size: 0.8125rem;
