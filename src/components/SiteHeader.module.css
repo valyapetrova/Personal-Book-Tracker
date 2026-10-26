@@ -1,10 +1,18 @@
+/* A medium coffee-brown bar in both colour schemes, with cream text. */
 .header {
+  --header-bg: #5c4332;
+  --header-text: var(--cream);
+  --header-highlight: color-mix(in srgb, var(--header-bg) 70%, var(--cream));
+  /* The default (maroon) focus ring would be invisible on this bar. */
+  --color-focus: var(--blush);
+
   position: sticky;
   top: 0;
   z-index: 10;
-  border-bottom: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--header-bg) 70%, #000);
+  background: color-mix(in srgb, var(--header-bg) 96%, transparent);
   backdrop-filter: blur(8px);
+  color: var(--header-text);
 }
 
 .inner {
@@ -28,33 +36,46 @@
 .logo {
   width: 1.75rem;
   height: 1.75rem;
-  fill: var(--color-accent);
+  fill: var(--blush);
 }
 
 .navList {
   display: flex;
-  gap: var(--space-1);
+  gap: var(--space-2);
   list-style: none;
 }
 
+/* Outlined cream buttons; the current section is filled in. */
 .navLink {
   display: block;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border: 1.5px solid color-mix(in srgb, var(--cream) 55%, transparent);
   border-radius: var(--radius-md);
-  color: var(--color-text-muted);
-  font-weight: 500;
+  color: var(--header-text);
+  font-size: 1rem;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 .navLink:hover {
-  background: var(--color-surface-muted);
-  color: var(--color-text);
+  border-color: var(--cream);
+  background: var(--header-highlight);
 }
 
 .navLink[aria-current="page"] {
-  background: var(--color-surface-muted);
-  color: var(--color-text);
+  border-color: var(--cream);
+  background: var(--cream);
+  color: var(--header-bg);
+}
+
+@media (max-width: 380px) {
+  .navLink {
+    padding-inline: var(--space-3);
+  }
 }
 
 .skipLink {

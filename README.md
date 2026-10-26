@@ -11,7 +11,13 @@ the app. There is no login: it is a personal app with one local database.
   4 per row on wide screens; **Find more books** adds the next 20 below.
 - **Three shelves**: *Want to read*, *Reading* and *Finished*. Add a book to a shelf, move it
   between shelves or remove it, from the search results, the shelf pages or the reader.
-- **My shelves**: one tab per shelf, with a live book count.
+- **3D bookcase**: *My shelves* opens on an animated wooden bookcase with one shelf per list. Each
+  book stands spine-out with its title on the spine, and the books drop into place when the page
+  opens. Hover a book (or tap it on a phone) to pull it out and turn it to show its cover; click it
+  (or tap again) to open it. You can drag to look around. The animations are reduced if your system
+  asks for less motion.
+- **My shelves**: next to the bookcase, one tab per shelf lists its books with a live count; this
+  is where you move or remove books.
 - **In-app reader**: books are downloaded once from Project Gutenberg and shown as one continuous
   text. Keep scrolling and the next pages load automatically. Prose is re-flowed for any screen
   width, and page numbers are marked in the margin. A sticky bar above the text shows your page
@@ -30,6 +36,7 @@ the app. There is no login: it is a personal app with one local database.
 | Framework | [Next.js 16](https://nextjs.org) (App Router, Server Components, Server Actions, Cache Components) with TypeScript |
 | Styling  | Plain CSS: `globals.css` for design tokens and shared utilities, plus a CSS Module per component. No UI library. |
 | Database | SQLite through Node's built-in [`node:sqlite`](https://nodejs.org/api/sqlite.html), so there is no native build step |
+| 3D | [three.js](https://threejs.org) for the bookcase, loaded only on that page. It builds on the `webgl_interactive_cubes`, `misc_controls_orbit` and `webgl_shadow_contact` examples. |
 | Book data | Project Gutenberg's own catalog: the OPDS search feed for search, per-book RDF records for details, plus covers and texts. XML is parsed with [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser). |
 
 ## Getting started
@@ -63,12 +70,13 @@ Then open <http://localhost:3000>. The database is created automatically on firs
 src/
 ├── app/                      Routes (Next.js App Router)
 │   ├── page.tsx              Discover: search + results
-│   ├── shelves/              My shelves: layout with tabs, one page per shelf
+│   ├── shelves/              My shelves: tabs, the 3D bookcase (index) and one page per shelf
 │   ├── read/[id]/            The reader
 │   ├── actions.ts            Server Actions: the only way data is changed
 │   ├── layout.tsx            Root layout (header, footer, fonts)
 │   └── globals.css           Design tokens, element defaults, shared utilities
 ├── components/               UI components, each with its own CSS Module
+│   ├── bookcase/             3D bookcase (three.js scene + React wrapper)
 │   └── reader/               Reader-specific components
 └── lib/                      Framework-independent logic
     ├── db.ts                 SQLite connection, pragmas and migrations

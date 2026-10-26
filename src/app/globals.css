@@ -4,24 +4,35 @@
  */
 
 :root {
-  /* Palette: warm paper and ink. */
-  --color-bg: #f7f3ec;
-  --color-surface: #fffdf9;
-  --color-surface-muted: #f0e9de;
-  --color-border: #e3d9ca;
-  --color-text: #2b2118;
-  --color-text-muted: #6d6152;
-  --color-accent: #9a4b2a;
-  --color-accent-hover: #7d3a1f;
-  --color-accent-contrast: #ffffff;
-  --color-danger: #b42318;
-  --color-focus: #2f6fdb;
+  /*
+   * Palette: brick #9E3A33, blush #F0D6C2, cream #FBF2E4, maroon #52201C and
+   * tan #C9A089. In-between shades are mixed from these colours.
+   */
+  --brick: #9e3a33;
+  --blush: #f0d6c2;
+  --cream: #fbf2e4;
+  --maroon: #52201c;
+  --tan: #c9a089;
 
-  /* One colour per shelf, used for badges and selected states. */
-  --shelf-want-to-read: #3a64a8;
-  --shelf-reading: #a86416;
-  --shelf-finished: #2d7a50;
-  --color-on-shelf: #ffffff;
+  --color-bg: var(--cream);
+  --color-surface: #fffaf3; /* a lighter cream, so cards stand out from the page */
+  --color-surface-muted: var(--blush);
+  --color-border: color-mix(in srgb, var(--tan) 55%, var(--cream));
+  --color-text: var(--maroon);
+  --color-text-muted: #8a5a4e; /* maroon softened towards tan; 5:1 contrast on cream */
+  --color-accent: var(--brick);
+  --color-accent-hover: color-mix(in srgb, var(--brick) 75%, var(--maroon));
+  --color-accent-contrast: var(--cream);
+  --color-danger: #b42318;
+  --color-focus: var(--maroon);
+
+  /* One colour per shelf (for badges and selected states), plus the text colour on it. */
+  --shelf-want-to-read: var(--tan);
+  --shelf-want-to-read-text: var(--maroon);
+  --shelf-reading: var(--brick);
+  --shelf-reading-text: var(--cream);
+  --shelf-finished: var(--maroon);
+  --shelf-finished-text: var(--cream);
 
   --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-serif: var(--font-literata), Georgia, "Times New Roman", serif;
@@ -40,8 +51,8 @@
   --radius-lg: 16px;
   --radius-full: 999px;
 
-  --shadow-sm: 0 1px 2px rgb(43 33 24 / 0.06);
-  --shadow-md: 0 4px 16px rgb(43 33 24 / 0.08);
+  --shadow-sm: 0 1px 2px rgb(82 32 28 / 0.07);
+  --shadow-md: 0 4px 16px rgb(82 32 28 / 0.1);
 
   --container-width: 1320px;
   --gutter: clamp(1rem, 4vw, 2rem);
@@ -50,22 +61,26 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #191613;
-    --color-surface: #231f1b;
-    --color-surface-muted: #2d2823;
-    --color-border: #3b342d;
-    --color-text: #f1eae0;
-    --color-text-muted: #b2a594;
-    --color-accent: #e0895c;
-    --color-accent-hover: #eba27c;
-    --color-accent-contrast: #1d1410;
+    /* The same palette in reverse: deep maroon page, cream text. */
+    --color-bg: color-mix(in srgb, var(--maroon) 45%, #000);
+    --color-surface: color-mix(in srgb, var(--maroon) 60%, #000);
+    --color-surface-muted: var(--maroon);
+    --color-border: color-mix(in srgb, var(--maroon) 70%, var(--tan));
+    --color-text: var(--cream);
+    --color-text-muted: var(--tan);
+    --color-accent: var(--brick);
+    --color-accent-hover: color-mix(in srgb, var(--brick) 80%, var(--blush));
+    --color-accent-contrast: var(--cream);
     --color-danger: #f97066;
-    --color-focus: #7aa7ff;
+    --color-focus: var(--blush);
 
-    --shelf-want-to-read: #7ea4e6;
-    --shelf-reading: #e3a24f;
-    --shelf-finished: #5fc08a;
-    --color-on-shelf: #15110e;
+    /* Maroon would vanish on a maroon page, so "Finished" uses blush in dark mode. */
+    --shelf-want-to-read: var(--tan);
+    --shelf-want-to-read-text: var(--maroon);
+    --shelf-reading: var(--brick);
+    --shelf-reading-text: var(--cream);
+    --shelf-finished: var(--blush);
+    --shelf-finished-text: var(--maroon);
 
     --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
     --shadow-md: 0 4px 16px rgb(0 0 0 / 0.35);

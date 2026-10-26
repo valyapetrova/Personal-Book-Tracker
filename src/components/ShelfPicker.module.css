@@ -53,19 +53,22 @@
 
 .option[data-shelf="want-to-read"] {
   --shelf-color: var(--shelf-want-to-read);
+  --shelf-text: var(--shelf-want-to-read-text);
 }
 
 .option[data-shelf="reading"] {
   --shelf-color: var(--shelf-reading);
+  --shelf-text: var(--shelf-reading-text);
 }
 
 .option[data-shelf="finished"] {
   --shelf-color: var(--shelf-finished);
+  --shelf-text: var(--shelf-finished-text);
 }
 
 .option[aria-pressed="true"] {
   background: var(--shelf-color);
-  color: var(--color-on-shelf);
+  color: var(--shelf-text);
   cursor: default;
 }
 

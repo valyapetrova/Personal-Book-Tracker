@@ -1,9 +1,20 @@
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
-  max-width: 36rem;
+  max-width: 48rem;
   list-style: none;
+}
+
+@media (min-width: 560px) {
+  .tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.tab[data-shelf="bookcase"] {
+  --shelf-color: #5c4332; /* the header's brown */
+  --shelf-text: var(--cream);
 }
 
 .tab {
@@ -34,14 +45,17 @@
 
 .tab[data-shelf="want-to-read"] {
   --shelf-color: var(--shelf-want-to-read);
+  --shelf-text: var(--shelf-want-to-read-text);
 }
 
 .tab[data-shelf="reading"] {
   --shelf-color: var(--shelf-reading);
+  --shelf-text: var(--shelf-reading-text);
 }
 
 .tab[data-shelf="finished"] {
   --shelf-color: var(--shelf-finished);
+  --shelf-text: var(--shelf-finished-text);
 }
 
 .tab[aria-current="page"] {
@@ -55,7 +69,7 @@
   padding: 0 var(--space-2);
   border-radius: var(--radius-full);
   background: var(--shelf-color);
-  color: var(--color-on-shelf);
+  color: var(--shelf-text);
   font-size: 0.8125rem;
   line-height: 1.5rem;
 }
