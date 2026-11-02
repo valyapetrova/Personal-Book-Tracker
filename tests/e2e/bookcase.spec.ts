@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 import { BOOKS, expect, test, type TestLibrary } from "./support/fixtures";
 
 /** Positions are fractions of the canvas (the bookcase layout is fixed for a small library). */
-const BIN = { x: 0.724, y: 0.83 };
+const BIN = { x: 0.76, y: 0.83 };
 
 function seedBookcase(library: TestLibrary) {
   library.seed(BOOKS.pride, { shelf: "want-to-read" });
@@ -13,30 +13,50 @@ function seedBookcase(library: TestLibrary) {
 }
 
 async function openBookcase(page: Page) {
-  await page.goto("/shelves");
+  await page.goto("/");
   const canvas = page.locator("main canvas");
   await expect(canvas).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(3000); // let the books drop into place
   return (await canvas.boundingBox())!;
 }
 
-/** Moves the pointer over the canvas until a book's tooltip matching `hint` appears. */
-async function findBook(page: Page, box: { x: number; y: number; width: number; height: number }, hint: RegExp) {
+/**
+ * Moves the pointer over the canvas until a tooltip matching `hint` appears.
+ * Books are in the left part of the canvas (`from`-`to`); the lamp is on the right.
+ */
+async function findBook(
+  page: Page,
+  box: { x: number; y: number; width: number; height: number },
+  hint: RegExp,
+  { from = 0.05, to = 0.6 } = {},
+) {
   for (let y = 0.12; y < 0.95; y += 0.04) {
-    for (let x = 0.2; x < 0.65; x += 0.012) {
+    for (let x = from; x < to; x += 0.012) {
       const point = { x: box.x + box.width * x, y: box.y + box.height * y };
       await page.mouse.move(point.x, point.y);
       if (await page.getByText(hint).isVisible()) return point;
     }
   }
-  throw new Error(`No book with a tooltip matching ${hint} was found`);
+  throw new Error(`Nothing with a tooltip matching ${hint} was found`);
 }
 
 test.describe("3D bookcase", () => {
+  test("is the home page, and the old /shelves address still leads to it", async ({ page }) => {
+    await page.goto("/shelves");
+
+    await expect(page).toHaveURL(/:\d+\/$/);
+    // The heading is only for screen readers: the bookcase speaks for itself.
+    await expect(page.getByRole("heading", { level: 1, name: "My shelves" })).toBeAttached();
+    const main = page.getByRole("navigation", { name: "Main" });
+    await expect(main.getByRole("link", { name: "My shelves" })).toHaveAttribute("aria-current", "page");
+    const tabs = page.getByRole("navigation", { name: "Shelves" });
+    await expect(tabs.getByRole("link", { name: /Bookcase/ })).toHaveAttribute("aria-current", "page");
+  });
+
   test("shows the shelved books; hovering shows a book's details and clicking opens it", async ({ page, library }) => {
     seedBookcase(library);
     const box = await openBookcase(page);
-    await expect(page.getByRole("img", { name: "Bookcase with 4 books, and a DNF bin" })).toBeVisible();
+    await expect(page.getByRole("img", { name: "Bookcase with 4 books, a DNF bin and a reading lamp" })).toBeVisible();
 
     const point = await findBook(page, box, /Click to read/);
     const tooltip = page.locator("main strong").first();
@@ -47,6 +67,17 @@ test.describe("3D bookcase", () => {
 
     await expect(page).toHaveURL(/\/read\/\d+/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
+  });
+
+  test("the reading lamp beside the bin leads to Discover", async ({ page, library }) => {
+    seedBookcase(library);
+    const box = await openBookcase(page);
+
+    const lamp = await findBook(page, box, /^Find your next book$/, { from: 0.7, to: 0.99 });
+    await page.mouse.click(lamp.x, lamp.y);
+
+    await expect(page).toHaveURL(/\/discover$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Find your next great read" })).toBeVisible();
   });
 
   test("a rated book shows its stars in the tooltip", async ({ page, library }) => {

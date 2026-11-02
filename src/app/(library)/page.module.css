@@ -1,0 +1,21 @@
+/* Covers the window behind everything (the header and tabs sit on top), so the
+   whole page reads as the room the bookcase stands in. Hidden along with the
+   page when Next.js keeps it mounted after navigating away. */
+.wall {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(ellipse at 38% 45%, var(--color-surface) 0%, var(--color-surface-muted) 85%);
+}
+
+/* Same size as the bookcase stage, so the page doesn't jump when it loads. */
+.placeholder {
+  height: clamp(460px, calc(100dvh - var(--header-height) - 7rem), 820px);
+}
+
+@media (max-width: 640px) {
+  .placeholder {
+    height: auto;
+    aspect-ratio: 5 / 4;
+  }
+}

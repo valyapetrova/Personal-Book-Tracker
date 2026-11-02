@@ -6,7 +6,17 @@ the app. There is no login: it is a personal app with one local database.
 
 ## Features
 
-- **Discover**: search by title or author. With no search, the most popular books are shown.
+- **3D bookcase (home page)**: Shelfie opens on *My shelves*: an animated wooden bookcase with one
+  shelf per list, standing against a warm wall that fills the page. Each book stands spine-out with
+  its title on the spine, and the books drop into place when the page opens. Hover a book (or tap it
+  on a phone) to pull it out and turn it to show its cover; click it (or tap again) to open it. Drag
+  a book onto another shelf to move it. The animations are reduced if your system asks for less
+  motion.
+- **Reading lamp**: a tall brass floor lamp stands behind the DNF bin. It switches on with a
+  flicker, glows brighter and swings its pull chain when you point at it, and clicking it opens
+  Discover to find new books.
+- **Discover** (`/discover`, from the lamp or the main menu): search by title or author. With no
+  search, the most popular books are shown.
   Each book shows its cover, title, author and a short description. Results come 20 at a time,
   4 per row on wide screens; **Find more books** adds the next 20 below.
 - **Shelves**: *Want to read*, *Reading*, *Finished* and *Did not finish*. Every book card has a
@@ -22,18 +32,13 @@ the app. There is no login: it is a personal app with one local database.
 - **Favorites**: under the shelf button, a heart marked *Add to favorites* fills pink when clicked.
   Favorites are separate from shelves, so a book can be both *Reading* and a favorite, or a favorite
   without being on any shelf. Hearted books are listed on the **Favorites** tab in *My shelves*.
-- **3D bookcase**: *My shelves* opens on an animated wooden bookcase with one shelf per list. Each
-  book stands spine-out with its title on the spine, and the books drop into place when the page
-  opens. Hover a book (or tap it on a phone) to pull it out and turn it to show its cover; click it
-  (or tap again) to open it. Drag a book onto another shelf to move it. The animations are reduced
-  if your system asks for less motion.
 - **DNF (did not finish) bin**: a wastebasket stands beside the bookcase. Drag a book into it to
   mark it as *did not finish*, or drag it back out onto any shelf. The bin glows when a book is
   over it, and every drop can be undone. DNF books also have their own **DNF** tab, and keep their
   reading progress.
-- **My shelves**: next to the bookcase, one tab per shelf, plus **DNF** and **Favorites**, lists
-  the books with a live count. This is where you move or remove books. Removing a favorite from the
-  shelves keeps it on the Favorites tab.
+- **My shelves**: a column of tabs to the right of the bookcase (a grid above it on small screens),
+  one per shelf plus **DNF** and **Favorites**, lists the books with a live count. This is where you
+  move or remove books. Removing a favorite from the shelves keeps it on the Favorites tab.
 - **In-app reader**: books are downloaded once from Project Gutenberg and shown as one continuous
   text. Keep scrolling and the next pages load automatically. Prose is re-flowed for any screen
   width, and page numbers are marked in the margin. A sticky bar above the text shows your page
@@ -54,7 +59,7 @@ the app. There is no login: it is a personal app with one local database.
 | Framework | [Next.js 16](https://nextjs.org) (App Router, Server Components, Server Actions, Cache Components) with TypeScript |
 | Styling  | Plain CSS: `globals.css` for design tokens and shared utilities, plus a CSS Module per component. No UI library. |
 | Database | SQLite through Node's built-in [`node:sqlite`](https://nodejs.org/api/sqlite.html), so there is no native build step |
-| 3D | [three.js](https://threejs.org) for the bookcase, loaded only on that page. It builds on the `webgl_interactive_cubes`, `misc_controls_orbit` and `webgl_shadow_contact` examples. All materials are drawn procedurally in `bookcase-materials.ts`, so no image files are needed: walnut grain with bevelled edges, riveted brass plates with engraved text, cloth spines with gold foil, and a black textured bin. A studio environment map (`RoomEnvironment`) makes the metal and foil reflect light. |
+| 3D | [three.js](https://threejs.org) for the bookcase, loaded only on that page. It builds on the `webgl_interactive_cubes`, `misc_controls_orbit` and `webgl_shadow_contact` examples. All materials are drawn procedurally in `bookcase-materials.ts`, so no image files are needed: walnut grain with bevelled edges, riveted brass plates with engraved text, cloth spines with gold foil, a black textured bin, and a brass lamp with a linen shade and a warm glow. A studio environment map (`RoomEnvironment`) makes the metal and foil reflect light. |
 | Book data | Project Gutenberg's own catalog: the OPDS search feed for search, per-book RDF records for details, plus covers and texts. XML is parsed with [`fast-xml-parser`](https://github.com/NaturalIntelligence/fast-xml-parser). |
 
 ## Getting started
@@ -67,6 +72,9 @@ npm run dev
 ```
 
 Then open <http://localhost:3000>. The database is created automatically on first use.
+
+If Windows refuses port 3000 (`EACCES`; it reserves some port ranges, see
+`netsh interface ipv4 show excludedportrange protocol=tcp`), pick another: `npm run dev -- -p 4000`.
 
 | Script | What it does |
 | ------ | ------------ |
@@ -107,8 +115,9 @@ To use an installed browser instead of downloading one, set `PLAYWRIGHT_CHANNEL`
 ```
 src/
 ├── app/                      Routes (Next.js App Router)
-│   ├── page.tsx              Discover: search + results
-│   ├── shelves/              My shelves: tabs, the 3D bookcase (index) and one page per shelf
+│   ├── (library)/            My shelves: the shared heading and tabs, the 3D bookcase (the home
+│   │                         page, `/`) and one page per shelf (`/shelves/…`)
+│   ├── discover/             Discover: search + results
 │   ├── read/[id]/            The reader
 │   ├── actions.ts            Server Actions: the only way data is changed
 │   ├── layout.tsx            Root layout (header, footer, fonts)

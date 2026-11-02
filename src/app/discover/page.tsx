@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { BookGridSkeleton } from "@/components/BookGrid";
@@ -8,7 +9,11 @@ import styles from "./page.module.css";
 
 const MAX_QUERY_LENGTH = 200;
 
-type SearchParams = Awaited<PageProps<"/">["searchParams"]>;
+export const metadata: Metadata = {
+  title: "Discover",
+};
+
+type SearchParams = Awaited<PageProps<"/discover">["searchParams"]>;
 
 function readSearch(params: SearchParams) {
   // How many results to show: a whole number of batches, within limits.
@@ -25,7 +30,7 @@ function readSearch(params: SearchParams) {
  * has been made). The heading and search bar are part of the static shell,
  * so they appear instantly; results stream in once Project Gutenberg responds.
  */
-export default function DiscoverPage({ searchParams }: PageProps<"/">) {
+export default function DiscoverPage({ searchParams }: PageProps<"/discover">) {
   const search = searchParams.then(readSearch);
 
   return (

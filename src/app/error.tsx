@@ -23,7 +23,7 @@ export default function Error({ error, retry }: { error: unknown; retry: () => v
               Try again
             </button>
             <Link href="/" className="button">
-              Go to Discover
+              Go to my shelves
             </Link>
           </div>
         }

@@ -10,7 +10,7 @@ export default function NotFound() {
         title="Page not found"
         action={
           <Link href="/" className="button button-primary">
-            Go to Discover
+            Go to my shelves
           </Link>
         }
       >

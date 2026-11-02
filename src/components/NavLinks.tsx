@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useSelectedLayoutSegment } from "next/navigation";
+import { useSelectedLayoutSegments } from "next/navigation";
 
 import styles from "./SiteHeader.module.css";
 
-const LINKS = [
-  { href: "/", label: "Discover", segment: null },
-  { href: "/shelves", label: "My shelves", segment: "shelves" },
-] as const;
+/** `sections`: the first URL segments each link is highlighted for ("" is the home page). */
+const LINKS: { href: string; label: string; sections: string[] }[] = [
+  { href: "/", label: "My shelves", sections: ["", "shelves"] },
+  { href: "/discover", label: "Discover", sections: ["discover"] },
+];
 
 /**
  * Main navigation; highlights the section the user is currently in. Reading
@@ -16,11 +17,13 @@ const LINKS = [
  * `<NavList />` as the fallback.
  */
 export function NavLinks() {
-  return <NavList activeSegment={useSelectedLayoutSegment()} />;
+  // Route groups such as "(library)" are not part of the URL, so skip them.
+  const section = useSelectedLayoutSegments().find((segment) => !segment.startsWith("(")) ?? "";
+  return <NavList activeSection={section} />;
 }
 
-/** The navigation markup. Without `activeSegment`, no link is highlighted. */
-export function NavList({ activeSegment }: { activeSegment?: string | null }) {
+/** The navigation markup. Without `activeSection`, no link is highlighted. */
+export function NavList({ activeSection }: { activeSection?: string }) {
   return (
     <nav aria-label="Main">
       <ul className={styles.navList}>
@@ -29,7 +32,7 @@ export function NavList({ activeSegment }: { activeSegment?: string | null }) {
             <Link
               href={link.href}
               className={styles.navLink}
-              aria-current={activeSegment === link.segment ? "page" : undefined}
+              aria-current={activeSection !== undefined && link.sections.includes(activeSection) ? "page" : undefined}
             >
               {link.label}
             </Link>

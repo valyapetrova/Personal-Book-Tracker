@@ -33,7 +33,7 @@ async function FavoriteBooks() {
       <EmptyState
         title="No favorites yet"
         action={
-          <Link href="/" className="button button-primary">
+          <Link href="/discover" className="button button-primary">
             Discover books
           </Link>
         }

@@ -8,12 +8,16 @@ import { listShelf } from "@/lib/library";
 import { SHELF_IDS } from "@/lib/shelves";
 import styles from "./page.module.css";
 
-/** `/shelves`: every shelved book in an animated 3D bookcase. */
+/** The home page (`/`): every shelved book in an animated 3D bookcase. */
 export default function BookcasePage() {
   return (
-    <Suspense fallback={<div className={styles.placeholder} />}>
-      <BookcaseLoader />
-    </Suspense>
+    <>
+      {/* The warm wall the bookcase stands against, behind the whole page. */}
+      <div className={styles.wall} aria-hidden="true" />
+      <Suspense fallback={<div className={styles.placeholder} />}>
+        <BookcaseLoader />
+      </Suspense>
+    </>
   );
 }
 

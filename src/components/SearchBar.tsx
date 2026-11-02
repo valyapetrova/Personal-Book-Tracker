@@ -7,7 +7,7 @@ import { Suspense, useEffect, useRef, type RefObject } from "react";
 import styles from "./SearchBar.module.css";
 
 /**
- * Search form. Submitting navigates to `/?q=…` on the client, so results are
+ * Search form. Submitting navigates to `/discover?q=…` on the client, so results are
  * shareable and the back button works, and it still works without JavaScript.
  *
  * The input is part of the static page shell and is never re-mounted, so
@@ -18,7 +18,7 @@ export function SearchBar() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <Form action="/" role="search" className={styles.form}>
+    <Form action="/discover" role="search" className={styles.form}>
       <label htmlFor="book-search" className="visually-hidden">
         Search books by title or author
       </label>

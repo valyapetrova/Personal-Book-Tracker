@@ -11,8 +11,9 @@ import { Stars } from "../Stars";
 import type { BookcaseBook, BookcaseHandle } from "./bookcase-scene";
 import styles from "./Bookcase.module.css";
 
-interface HoveredBook {
-  book: BookcaseBook;
+interface Hovered {
+  /** A book, or the reading lamp (which leads to Discover). */
+  target: BookcaseBook | "lamp";
   /** Position relative to the bookcase container. */
   x: number;
   y: number;
@@ -28,8 +29,9 @@ type Notice =
 const NOTICE_DURATION_MS = 8000;
 
 /**
- * Interactive 3D bookcase showing every shelved book, with the DNF bin
- * beside it. Books can be dragged between shelves and into the bin. three.js
+ * Interactive 3D bookcase showing every shelved book, with the DNF bin and a
+ * reading lamp beside it. Books can be dragged between shelves and into the
+ * bin; clicking the lamp opens Discover to find new books. three.js
  * is loaded only when this component mounts, so other pages don't pay for it.
  */
 export function Bookcase({ books }: { books: BookcaseBook[] }) {
@@ -39,7 +41,7 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
   const booksRef = useRef(books);
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "ready" | "unsupported">("loading");
-  const [hovered, setHovered] = useState<HoveredBook | null>(null);
+  const [hovered, setHovered] = useState<Hovered | null>(null);
   const [isTouch, setIsTouch] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const promptReview = useReviewPrompt();
@@ -84,13 +86,20 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
           container,
           booksRef.current,
           {
-            onHover(book, clientX, clientY) {
+            onHover(target, clientX, clientY) {
               const rect = container.getBoundingClientRect();
               const x = clientX - rect.left;
-              setHovered(book ? { book, x, y: clientY - rect.top, flip: x > rect.width - 280 } : null);
+              setHovered(target ? { target, x, y: clientY - rect.top, flip: x > rect.width - 280 } : null);
             },
             onOpen(book) {
               router.push(`/read/${book.id}`);
+            },
+            onLamp() {
+              router.push("/discover");
+            },
+            onFit(caseTop) {
+              // The shelf tabs beside the page line up with the top of the case (see the (library) layout).
+              document.documentElement.style.setProperty("--bookcase-top", `${Math.round(caseTop)}px`);
             },
             onMove(book, from) {
               void moveBook(book, from);
@@ -113,6 +122,7 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
       disposed = true;
       handleRef.current?.dispose();
       handleRef.current = null;
+      document.documentElement.style.removeProperty("--bookcase-top");
     };
     // Both are stable, so the scene is built once per mount.
   }, [router, promptReview]);
@@ -129,12 +139,12 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
         ref={containerRef}
         className={styles.stage}
         role="img"
-        aria-label={`Bookcase with ${books.filter((book) => book.shelf !== "dnf").length} books, and a DNF bin`}
+        aria-label={`Bookcase with ${books.filter((book) => book.shelf !== "dnf").length} books, a DNF bin and a reading lamp`}
       >
         {status === "loading" && <p className={styles.message}>Building your bookcase…</p>}
         {status === "unsupported" && (
           <p className={styles.message}>
-            Your browser can’t show the 3D bookcase. Use the shelf tabs above to see your books.
+            Your browser can’t show the 3D bookcase. Use the shelf tabs to see your books.
           </p>
         )}
         {hovered && (
@@ -143,12 +153,21 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
             style={{ left: hovered.x, top: hovered.y }}
             aria-hidden="true"
           >
-            <strong>{hovered.book.title}</strong>
-            <span>{hovered.book.author}</span>
-            {hovered.book.rating !== null && <Stars rating={hovered.book.rating} />}
-            <span className={styles.tooltipHint}>
-              {getShelfInfo(hovered.book.shelf).fullLabel} · {isTouch ? "Tap again to read" : "Click to read"}
-            </span>
+            {hovered.target === "lamp" ? (
+              <>
+                <strong>Find your next book</strong>
+                <span className={styles.tooltipHint}>Click the lamp to search the catalogue</span>
+              </>
+            ) : (
+              <>
+                <strong>{hovered.target.title}</strong>
+                <span>{hovered.target.author}</span>
+                {hovered.target.rating !== null && <Stars rating={hovered.target.rating} />}
+                <span className={styles.tooltipHint}>
+                  {getShelfInfo(hovered.target.shelf).fullLabel} · {isTouch ? "Tap again to read" : "Click to read"}
+                </span>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -170,12 +189,12 @@ export function Bookcase({ books }: { books: BookcaseBook[] }) {
       <p className={styles.hint}>
         {books.length === 0 ? (
           <>
-            Your bookcase is empty. <Link href="/">Discover books</Link> and add them to a shelf.
+            Your bookcase is empty. <Link href="/discover">Discover books</Link> and add them to a shelf.
           </>
         ) : isTouch ? (
-          "Tap a book to pull it out, tap again to open it. Drag a book sideways to move it or drop it in the DNF bin."
+          "Tap a book to pull it out, tap again to open it. Drag a book sideways to move it or drop it in the DNF bin. Tap the lamp to find new books."
         ) : (
-          "Hover a book to pull it out, click to open it. Drag it to another shelf or into the DNF bin."
+          "Hover a book to pull it out, click to open it. Drag it to another shelf or into the DNF bin. Click the lamp to find new books."
         )}
       </p>
     </div>

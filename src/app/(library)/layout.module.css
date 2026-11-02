@@ -1,0 +1,38 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding-block: var(--space-5) var(--space-8);
+}
+
+/* Wide screens: the shelves stand in a column to the right of the page.
+   ShelfTabs.module.css stacks the tabs at the same width. */
+@media (min-width: 960px) {
+  .page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 15rem;
+    align-items: start;
+    gap: var(--space-6);
+  }
+
+  .side {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-5));
+    /* On the bookcase page, level with the top of the case (set by the 3D scene). */
+    margin-top: var(--bookcase-top, 0px);
+    transition: margin-top 300ms ease;
+  }
+
+  .content {
+    grid-column: 1;
+    grid-row: 1;
+  }
+}
+
+@media (min-width: 960px) and (prefers-reduced-motion: reduce) {
+  .side {
+    transition: none;
+  }
+}

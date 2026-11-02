@@ -315,6 +315,56 @@ export function createBinMaterials(): { outside: THREE.MeshStandardMaterial; ins
   };
 }
 
+// ---- The reading lamp ---------------------------------------------------------------
+
+export interface LampMaterials {
+  /** Polished brass for the base, stand and shade rims. */
+  brass: THREE.MeshStandardMaterial;
+  /** Woven linen shade; its warm glow (emissiveIntensity) is animated. */
+  shade: THREE.MeshStandardMaterial;
+  /** Soft round glow, for the halo around the shade and the pool of light on the floor. */
+  glow: THREE.CanvasTexture;
+}
+
+export function createLampMaterials(): LampMaterials {
+  // Linen: a cream base crossed by fine, uneven threads.
+  const { canvas, context } = createCanvas(256, 256);
+  context.fillStyle = "#f4e4c8";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  const random = seededRandom(9);
+  for (let y = 0; y < canvas.height; y += 2) {
+    context.fillStyle = `rgba(120, 86, 52, ${0.04 + random() * 0.09})`;
+    context.fillRect(0, y, canvas.width, 1);
+  }
+  for (let x = 0; x < canvas.width; x += 2) {
+    context.fillStyle = `rgba(255, 250, 240, ${0.04 + random() * 0.08})`;
+    context.fillRect(x, 0, 1, canvas.height);
+  }
+  const linen = toTexture(canvas, true);
+  linen.repeat.set(4, 1);
+
+  const glowCanvas = createCanvas(256, 256);
+  const gradient = glowCanvas.context.createRadialGradient(128, 128, 0, 128, 128, 128);
+  gradient.addColorStop(0, "rgba(255, 214, 150, 0.95)");
+  gradient.addColorStop(0.3, "rgba(255, 196, 120, 0.45)");
+  gradient.addColorStop(1, "rgba(255, 180, 100, 0)");
+  glowCanvas.context.fillStyle = gradient;
+  glowCanvas.context.fillRect(0, 0, 256, 256);
+
+  return {
+    brass: new THREE.MeshStandardMaterial({ color: BRASS, metalness: 1, roughness: 0.3 }),
+    shade: new THREE.MeshStandardMaterial({
+      map: linen,
+      roughness: 0.95,
+      side: THREE.DoubleSide,
+      emissive: "#ffb35c",
+      emissiveMap: linen,
+      emissiveIntensity: 0,
+    }),
+    glow: toTexture(glowCanvas.canvas),
+  };
+}
+
 // ---- Shadows inside the case ----------------------------------------------------
 
 /** Soft darkening for the back of a compartment: deeper under the shelf above and in the corners. */

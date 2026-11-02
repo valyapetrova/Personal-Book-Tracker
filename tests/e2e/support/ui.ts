@@ -26,7 +26,7 @@ export async function chooseShelf(card: Locator, label: string) {
 
 /** Opens Discover with a search and waits for results, retrying if Project Gutenberg is slow. */
 export async function search(page: Page, query: string) {
-  await page.goto(query ? `/?q=${encodeURIComponent(query)}` : "/");
+  await page.goto(query ? `/discover?q=${encodeURIComponent(query)}` : "/discover");
   const heading = page.getByRole("heading", { level: 2, name: query ? `Results for “${query}”` : "Popular on Project Gutenberg" });
   for (let attempt = 0; attempt < 3; attempt++) {
     const retry = page.getByRole("button", { name: "Try again" });

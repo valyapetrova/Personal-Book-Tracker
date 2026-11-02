@@ -4,21 +4,18 @@
   gap: var(--space-3);
 }
 
+/* Transparent: the bookcase stands against the page's own wall (see the home page). */
 .stage {
   position: relative;
-  height: clamp(460px, 70vh, 780px);
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  /* A warm, softly lit wall behind the bookcase. */
-  background: radial-gradient(ellipse at 50% 35%, var(--color-surface) 0%, var(--color-surface-muted) 100%);
+  /* As tall as the window allows, leaving room for the notice and hint below. */
+  height: clamp(460px, calc(100dvh - var(--header-height) - 7rem), 820px);
 }
 
-/* On narrow screens a squarer stage fits the case without empty bands. */
+/* On narrow screens the stage keeps the shape of the case, bin and lamp, without empty bands. */
 @media (max-width: 640px) {
   .stage {
     height: auto;
-    aspect-ratio: 9 / 10;
+    aspect-ratio: 5 / 4;
   }
 }
 
@@ -38,6 +35,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  /* Its own width, even near the right edge of the stage (where it is flipped left). */
+  width: max-content;
   max-width: 16rem;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);

@@ -49,7 +49,7 @@ export async function SearchResults({ query, count }: SearchResultsProps) {
       <EmptyState
         title={`No books found for “${query}”`}
         action={
-          <Link href="/" className="button">
+          <Link href="/discover" className="button">
             Back to popular books
           </Link>
         }

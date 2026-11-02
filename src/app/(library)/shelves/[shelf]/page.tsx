@@ -40,11 +40,11 @@ async function ShelfBooks({ shelf }: { shelf: string }) {
         title={`Your “${fullLabel}” shelf is empty`}
         action={
           shelf === "dnf" ? (
-            <Link href="/shelves" className="button button-primary">
+            <Link href="/" className="button button-primary">
               Open the bookcase
             </Link>
           ) : (
-            <Link href="/" className="button button-primary">
+            <Link href="/discover" className="button button-primary">
               Discover books
             </Link>
           )

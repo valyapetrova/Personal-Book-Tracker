@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSelectedLayoutSegment } from "next/navigation";
+import { useSelectedLayoutSegments } from "next/navigation";
 
 import { BOOKCASE_SHELVES, SHELVES, type ShelfId } from "@/lib/shelves";
 import styles from "./ShelfTabs.module.css";
@@ -15,7 +15,9 @@ type ShelfCounts = (Record<ShelfId, number> & { favorites: number }) | null;
  * `<ShelfTabList />` as the fallback.
  */
 export function ShelfTabs({ counts }: { counts: ShelfCounts }) {
-  return <ShelfTabList counts={counts} activeShelf={useSelectedLayoutSegment()} />;
+  // [] on the bookcase (`/`), ["shelves", "reading"] on `/shelves/reading`.
+  const [, shelf = null] = useSelectedLayoutSegments();
+  return <ShelfTabList counts={counts} activeShelf={shelf} />;
 }
 
 /**
@@ -32,7 +34,7 @@ export function ShelfTabList({ counts, activeShelf }: { counts: ShelfCounts; act
       <ul className={styles.tabs}>
         <li>
           <Link
-            href="/shelves"
+            href="/"
             data-shelf="bookcase"
             aria-current={activeShelf === null ? "page" : undefined}
             className={styles.tab}

@@ -9,6 +9,7 @@ import {
   compartmentShadowTexture,
   createBinMaterials,
   createBrassPlate,
+  createLampMaterials,
   createWoodMaterials,
   pageEdgesTexture,
   plainCoverTexture,
@@ -19,9 +20,11 @@ import {
  * A 3D bookcase rendered with three.js (no React in this file).
  *
  * Books stand on three shelves with their spines out; a "DNF" wastebasket
- * stands beside the case. When the page opens the books drop into place.
- * Hovering a book pulls it out and turns it to show its cover, clicking
- * opens it, and dragging moves it to another shelf or into the bin.
+ * stands beside the case, and a tall reading lamp behind the bin. When the
+ * page opens the books drop into place and the lamp switches on. Hovering a
+ * book pulls it out and turns it to show its cover, clicking opens it, and
+ * dragging moves it to another shelf or into the bin. Clicking the lamp leads
+ * to new books.
  *
  * Ideas taken from the three.js examples: webgl_interactive_cubes (raycast
  * picking), misc_controls_orbit (camera controls) and webgl_shadow_contact
@@ -43,9 +46,13 @@ export interface BookcaseBook {
 }
 
 export interface BookcaseCallbacks {
-  /** A book was hovered (or tapped once on touch screens), or null when none is. */
-  onHover(book: BookcaseBook | null, clientX: number, clientY: number): void;
+  /** The pointer is over a book or the lamp (or a book was tapped once on touch screens); null when neither. */
+  onHover(target: BookcaseBook | "lamp" | null, clientX: number, clientY: number): void;
   onOpen(book: BookcaseBook): void;
+  /** The lamp was clicked. */
+  onLamp(): void;
+  /** The scene was (re)fitted to the canvas: the top of the case is now `caseTop` px below the canvas's top. */
+  onFit(caseTop: number): void;
   /** A book was dragged onto another shelf or into the bin. The scene has already moved it. */
   onMove(book: BookcaseBook, from: ShelfId): void;
 }
@@ -82,6 +89,17 @@ const BIN_RADIUS_BOTTOM = 0.47;
 const BIN_HEIGHT = 1.0;
 const BIN_GAP = 0.7; // between the case and the bin
 const BIN_BOOK_SCALE = 0.82;
+
+/** The floor lamp stands just behind the bin, to its right. */
+const LAMP_HEIGHT = 4.2; // floor to the top of the shade
+const LAMP_OFFSET_X = 0.8; // from the bin's centre
+const LAMP_Z = -0.45;
+const SHADE_HEIGHT = 0.8;
+const SHADE_RADIUS_TOP = 0.34;
+const SHADE_RADIUS_BOTTOM = 0.56;
+/** Brightness of the lamp's light when on, and when it switches on (seconds after the page opens). */
+const LAMP_INTENSITY = 10;
+const LAMP_ON_AT = 1.4;
 
 /** Dragged books move on a plane this far in front of the case's centre. */
 const DRAG_Z = CASE_DEPTH / 2 + 0.55;
@@ -258,6 +276,78 @@ export function createBookcase(
   binLabel.group.rotation.x = -Math.atan((BIN_RADIUS_TOP - BIN_RADIUS_BOTTOM) / BIN_HEIGHT);
   bin.add(binLabel.group);
 
+  // ---- The reading lamp: a tall brass floor lamp with a linen shade -----------------
+
+  const lampMaterials = createLampMaterials();
+  const lamp = new THREE.Group();
+  lamp.position.set(binX + LAMP_OFFSET_X, bottomY, LAMP_Z);
+  world.add(lamp);
+
+  const shadeBottom = LAMP_HEIGHT - SHADE_HEIGHT;
+  const socketY = shadeBottom + 0.28; // the bulb sits up inside the shade
+
+  // A weighted, domed base, turned like a real lamp's (a lathe profile).
+  const baseProfile = [[0, 0], [0.42, 0], [0.43, 0.03], [0.38, 0.07], [0.2, 0.11], [0.07, 0.16], [0.045, 0.2]];
+  const lampBase = new THREE.Mesh(
+    new THREE.LatheGeometry(baseProfile.map(([x, y]) => new THREE.Vector2(x, y)), 48),
+    lampMaterials.brass,
+  );
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.034, socketY - 0.2, 16), lampMaterials.brass);
+  pole.position.y = 0.2 + (socketY - 0.2) / 2;
+  const socket = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.16, 24), lampMaterials.brass);
+  socket.position.y = socketY;
+  const bulbOff = new THREE.Color("#8a7a66");
+  const bulbOn = new THREE.Color("#fff3d6");
+  const bulbMaterial = new THREE.MeshBasicMaterial({ color: bulbOff });
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 16), bulbMaterial);
+  bulb.position.y = socketY + 0.17;
+  const shade = new THREE.Mesh(
+    new THREE.CylinderGeometry(SHADE_RADIUS_TOP, SHADE_RADIUS_BOTTOM, SHADE_HEIGHT, 64, 1, true),
+    lampMaterials.shade,
+  );
+  shade.position.y = shadeBottom + SHADE_HEIGHT / 2;
+  // Thin brass rims along the shade's top and bottom edges.
+  const rims = [
+    [SHADE_RADIUS_TOP, LAMP_HEIGHT],
+    [SHADE_RADIUS_BOTTOM, shadeBottom],
+  ].map(([radius, y]) => {
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.014, 8, 64), lampMaterials.brass);
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = y;
+    return rim;
+  });
+  for (const part of [lampBase, pole, socket, shade, ...rims]) part.castShadow = true;
+
+  // A pull chain with a bead, hanging below the shade; it swings when the lamp is touched.
+  const chain = new THREE.Group();
+  chain.position.set(0.08, socketY, 0.08);
+  const chainLink = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.55, 6), lampMaterials.brass);
+  chainLink.position.y = -0.275;
+  const bead = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), lampMaterials.brass);
+  bead.position.y = -0.57;
+  chain.add(chainLink, bead);
+
+  // Warm light from the bulb, a soft halo around the shade and a pool of light on the floor.
+  const lampLight = new THREE.PointLight("#ffb35c", 0, 0, 2);
+  lampLight.position.y = bulb.position.y;
+  const haloMaterial = new THREE.MeshBasicMaterial({ map: lampMaterials.glow, transparent: true, opacity: 0, depthWrite: false });
+  // Both are kept small enough to fade out before the edge of the canvas.
+  const halo = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.9), haloMaterial);
+  halo.position.y = shade.position.y;
+  const poolMaterial = new THREE.MeshBasicMaterial({ map: lampMaterials.glow, transparent: true, opacity: 0, depthWrite: false });
+  const pool = new THREE.Mesh(new THREE.PlaneGeometry(2, 1.4), poolMaterial);
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.set(-0.25, 0.004, 0.3);
+
+  // The stand is thin, so a wider invisible column around it makes it easy to point at.
+  const lampHitArea = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, shadeBottom, 8));
+  lampHitArea.position.y = shadeBottom / 2;
+  lampHitArea.visible = false;
+
+  lamp.add(lampBase, pole, socket, bulb, shade, ...rims, chain, lampLight, halo, pool, lampHitArea);
+  /** The parts of the lamp that respond to the pointer. */
+  const lampTargets = new Set<THREE.Object3D>([lampBase, pole, socket, bulb, shade, ...rims, chainLink, bead, lampHitArea]);
+
   // ---- Lights, shadow catcher, camera, controls -------------------------------
 
   scene.add(new THREE.HemisphereLight("#fff4e6", "#5c4332", 0.75));
@@ -273,13 +363,14 @@ export function createBookcase(
   sun.shadow.radius = 6;
   sun.shadow.bias = -0.0004;
   sun.shadow.normalBias = 0.02;
-  const compositionWidth = outerWidth + BIN_GAP + BIN_RADIUS_TOP * 2;
+  // The case, then the bin, then the lamp's shade, which reaches furthest right.
+  const compositionWidth = outerWidth + BIN_GAP + BIN_RADIUS_TOP + LAMP_OFFSET_X + SHADE_RADIUS_BOTTOM;
   const shadowExtent = Math.max(compositionWidth, outerHeight);
   Object.assign(sun.shadow.camera, { left: -shadowExtent, right: shadowExtent, top: shadowExtent, bottom: -shadowExtent });
   scene.add(sun);
 
-  // Centre the case and bin together.
-  world.position.x = -(BIN_GAP + BIN_RADIUS_TOP * 2) / 2;
+  // Centre the case, bin and lamp together, which moves the case to the left.
+  world.position.x = -(compositionWidth - outerWidth) / 2;
 
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(compositionWidth * 3, 6), new THREE.ShadowMaterial({ opacity: 0.18 }));
   ground.rotation.x = -Math.PI / 2;
@@ -315,6 +406,12 @@ export function createBookcase(
     camera.updateProjectionMatrix();
     controls.target.set(0, 0, 0);
     controls.update();
+
+    // Where the front edge of the top board appears, so the page can line things up with it.
+    camera.updateMatrixWorld();
+    world.updateMatrixWorld();
+    const top = new THREE.Vector3(0, outerHeight / 2, caseFront).applyMatrix4(world.matrixWorld).project(camera);
+    callbacks.onFit(((1 - top.y) / 2) * height);
   }
 
   // ---- Books -------------------------------------------------------------------
@@ -481,7 +578,11 @@ export function createBookcase(
   const targetPoint = new THREE.Vector3();
 
   let hovered: BookState | null = null;
-  let press: { x: number; y: number; state: BookState | null } | null = null;
+  let lampHovered = false;
+  /** 0-1: how brightly the lamp answers the pointer, and how far its chain is swinging. */
+  let lampHover = 0;
+  let chainSwing = 0;
+  let press: { x: number; y: number; state: BookState | null; lamp: boolean } | null = null;
   let dragging: BookState | null = null;
   let dropTarget: ShelfId | null = null;
 
@@ -501,6 +602,13 @@ export function createBookcase(
     }
     const hit = raycaster.intersectObjects([...owners.keys()], false)[0];
     return hit ? (owners.get(hit.object) ?? null) : null;
+  }
+
+  /** Whether the pointer is over the lamp (and not over the bin standing in front of it). */
+  function pickLamp(event: PointerEvent): boolean {
+    setPointerFrom(event);
+    const hit = raycaster.intersectObjects([...lampTargets, binWall, binRim], false)[0];
+    return hit !== undefined && lampTargets.has(hit.object);
   }
 
   /**
@@ -526,17 +634,20 @@ export function createBookcase(
     return index === -1 ? null : BOOKCASE_SHELVES[index].id;
   }
 
-  function setHovered(state: BookState | null, event: PointerEvent) {
+  function setHovered(state: BookState | null, event: PointerEvent, lamp = false) {
+    // Touching the lamp sets its chain swinging.
+    if (lamp && !lampHovered) chainSwing = 1;
     hovered = state;
-    canvas.style.cursor = state ? "grab" : "";
-    callbacks.onHover(state?.book ?? null, event.clientX, event.clientY);
+    lampHovered = lamp;
+    canvas.style.cursor = state ? "grab" : lamp ? "pointer" : "";
+    callbacks.onHover(state?.book ?? (lamp ? "lamp" : null), event.clientX, event.clientY);
   }
 
   function onPointerDown(event: PointerEvent) {
     // The hovered book may have moved under the pointer (it lifts or slides out
     // when hovered); pressing still grabs the book the tooltip is showing.
     const state = pick(event) ?? (event.pointerType === "mouse" ? hovered : null);
-    press = { x: event.clientX, y: event.clientY, state };
+    press = { x: event.clientX, y: event.clientY, state, lamp: !state && pickLamp(event) };
     // Pressing a book starts a possible drag, so the camera must not rotate.
     if (state) {
       controls.enabled = false;
@@ -560,7 +671,10 @@ export function createBookcase(
       }
       return;
     }
-    if (event.pointerType !== "touch") setHovered(pick(event), event);
+    if (event.pointerType !== "touch") {
+      const state = pick(event);
+      setHovered(state, event, !state && pickLamp(event));
+    }
   }
 
   function onPointerUp(event: PointerEvent) {
@@ -577,6 +691,11 @@ export function createBookcase(
     const pressed = press;
     press = null;
     if (!pressed || Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > DRAG_THRESHOLD) return;
+    if (pressed.lamp && pickLamp(event)) {
+      chainSwing = 1;
+      callbacks.onLamp();
+      return;
+    }
     const state = pick(event);
     if (!state) {
       setHovered(null, event);
@@ -684,6 +803,21 @@ export function createBookcase(
     const binActive = dropTarget === "dnf" ? 1 : dragging ? 0.25 : 0;
     binMaterial.emissiveIntensity += (binActive * 0.55 - binMaterial.emissiveIntensity) * ease(10);
     bin.scale.setScalar(bin.scale.x + ((dropTarget === "dnf" ? 1.08 : 1) - bin.scale.x) * ease(12));
+
+    // The lamp switches on with a flicker once the books are in, breathes softly,
+    // and glows brighter while pointed at. Its chain swings after a touch.
+    const sinceOn = elapsed - LAMP_ON_AT;
+    const power = options.reducedMotion ? 1 : sinceOn < 0 ? 0 : sinceOn < 0.45 && Math.sin(sinceOn * 70) < -0.2 ? 0.15 : 1;
+    lampHover += ((lampHovered ? 1 : 0) - lampHover) * ease(8);
+    const breath = options.reducedMotion ? 1 : 1 + Math.sin(elapsed * 1.7) * 0.03;
+    const glow = power * (1 + lampHover * 0.5) * breath;
+    lampLight.intensity = LAMP_INTENSITY * glow;
+    lampMaterials.shade.emissiveIntensity = 1.1 * glow;
+    bulbMaterial.color.lerpColors(bulbOff, bulbOn, Math.min(glow, 1));
+    haloMaterial.opacity = Math.min(0.75 * glow, 1);
+    poolMaterial.opacity = Math.min(0.55 * glow, 1);
+    chainSwing = options.reducedMotion ? 0 : chainSwing * Math.exp(-delta * 1.8);
+    chain.rotation.z = Math.sin(elapsed * 7) * 0.35 * chainSwing;
 
     // A gentle sway so the case feels alive (paused while dragging and for reduced motion).
     const sway = options.reducedMotion || dragging ? 0 : Math.sin(elapsed * 0.35) * 0.035;

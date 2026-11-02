@@ -90,3 +90,26 @@
   font-size: 0.8125rem;
   line-height: 1.5rem;
 }
+
+/* Wide screens: one tab above another, in the column beside the page
+   (same breakpoint as the (library) layout). */
+@media (min-width: 960px) {
+  .tabs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tab {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+  }
+
+  .tab[aria-current="page"] {
+    box-shadow: inset 4px 0 0 var(--shelf-color);
+  }
+
+  .count {
+    margin-left: auto;
+  }
+}

@@ -18,11 +18,15 @@ test.describe("Discover", () => {
   });
 
   test("searches the catalogue by title or author", async ({ page }) => {
+    // The home page is the bookcase; search is one click away.
     await page.goto("/");
+    const discoverLink = page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Discover" });
+    await discoverLink.click();
+    await expect(discoverLink).toHaveAttribute("aria-current", "page");
     await page.getByRole("searchbox").fill("austen");
     await page.getByRole("searchbox").press("Enter");
 
-    await expect(page).toHaveURL(/\?q=austen/);
+    await expect(page).toHaveURL(/\/discover\?q=austen/);
     await expect(page.getByRole("heading", { level: 2, name: "Results for “austen”" })).toBeVisible({ timeout: 60_000 });
     await expect(bookCards(page).getByRole("heading", { name: "Pride and Prejudice" }).first()).toBeVisible();
 
@@ -47,7 +51,7 @@ test.describe("Discover", () => {
   });
 
   test("explains when nothing matches", async ({ page }) => {
-    await page.goto("/?q=zzqxnotabook");
+    await page.goto("/discover?q=zzqxnotabook");
 
     await expect(page.getByRole("heading", { name: "No books found for “zzqxnotabook”" })).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole("link", { name: "Back to popular books" })).toBeVisible();
